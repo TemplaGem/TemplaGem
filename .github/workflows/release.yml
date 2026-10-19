@@ -16,20 +16,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Pack source code into ZIP
-        run: |
-          zip -r extension-source.zip . \
-            -x "*.git*" \
-            -x "*.github*" \
-            -x "*tests*" \
-            -x "*test*" \
-            -x "*.test.*" \
-            -x "*.spec.*" \
-            -x "*docs*" \
-            -x "*.md" \
-            -x "node_modules/*" \
-            -x ".plasmo/*" \
-            -x "build/*"
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package extension
+        run: pnpm run package
 
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
@@ -39,5 +41,4 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: extension-source.zip
-
+          files: build/chrome-mv3-prod.zip
