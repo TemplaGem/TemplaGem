@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { z } from "zod"
@@ -195,6 +195,42 @@ describe("Modal edge cases and error handling", () => {
         screen.getByRole("button", { name: /confirm delete account/i })
       )
       expect(await screen.findByText("Invalid password")).toBeInTheDocument()
+    })
+
+    it("reveals backend info on 5 quick clicks on Settings heading and resets on timeout", () => {
+      vi.useFakeTimers()
+      const onBack = vi.fn()
+
+      render(<SettingsPage onBack={onBack} />)
+
+      const title = screen.getByRole("heading", { name: "Settings" })
+      expect(screen.queryByText("Server Connection")).not.toBeInTheDocument()
+
+      // Click 3 times
+      fireEvent.click(title)
+      fireEvent.click(title)
+      fireEvent.click(title)
+      expect(screen.queryByText("Server Connection")).not.toBeInTheDocument()
+
+      // Timeout expires (1500ms) -> count resets
+      vi.advanceTimersByTime(1600)
+
+      // 4 clicks are still not enough
+      fireEvent.click(title)
+      fireEvent.click(title)
+      fireEvent.click(title)
+      fireEvent.click(title)
+      expect(screen.queryByText("Server Connection")).not.toBeInTheDocument()
+
+      // 5th quick click triggers reveal
+      fireEvent.click(title)
+      expect(screen.getByText("Server Connection")).toBeInTheDocument()
+
+      // Subsequent clicks do nothing / don't crash
+      fireEvent.click(title)
+      expect(screen.getByText("Server Connection")).toBeInTheDocument()
+
+      vi.useRealTimers()
     })
   })
 })

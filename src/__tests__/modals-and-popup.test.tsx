@@ -508,9 +508,15 @@ describe("ListSection & Popup Integration", () => {
 
     // Open SettingsPage via Header settings button, test theme segment control and backend connection
     await user.click(screen.getByRole("button", { name: /settings/i }))
-    expect(
-      screen.getByRole("heading", { name: "Settings" })
-    ).toBeInTheDocument()
+    const settingsHeading = screen.getByRole("heading", { name: "Settings" })
+    expect(settingsHeading).toBeInTheDocument()
+    expect(screen.queryByText("Server Connection")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("backend-badge")).not.toBeInTheDocument()
+
+    // 5 clicks on Settings heading reveal Server Connection and BackendBadge
+    for (let i = 0; i < 5; i++) {
+      await user.click(settingsHeading)
+    }
     expect(screen.getByText("Server Connection")).toBeInTheDocument()
     expect(screen.getByTestId("backend-badge")).toBeInTheDocument()
 

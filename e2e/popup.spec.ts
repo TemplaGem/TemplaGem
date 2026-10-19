@@ -216,11 +216,17 @@ test.describe("Popup Extension Interface (E2E)", () => {
     await expect(settingsBtn).toBeVisible()
     await settingsBtn.click()
 
-    await expect(
-      page.getByRole("heading", { name: "Settings" })
-    ).toBeVisible()
+    const settingsHeading = page.getByRole("heading", { name: "Settings" })
+    await expect(settingsHeading).toBeVisible()
 
-    // Verify Backend connection info is displayed on SettingsPage
+    // Verify Backend connection info is hidden by default on SettingsPage
+    await expect(page.getByTestId("backend-badge")).not.toBeVisible()
+    await expect(page.getByText("Server Connection")).not.toBeVisible()
+
+    // 5 quick clicks on Settings heading reveal Backend connection info
+    for (let i = 0; i < 5; i++) {
+      await settingsHeading.click()
+    }
     await expect(page.getByTestId("backend-badge")).toBeVisible()
     await expect(page.getByText("Server Connection")).toBeVisible()
 

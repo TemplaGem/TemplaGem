@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import {
   MdArrowBack,
   MdClose,
@@ -50,6 +50,17 @@ export default function SettingsPage({
   const [deleteUserPassword, setDeleteUserPassword] = useState("")
   const [isDeletingUser, setIsDeletingUser] = useState(false)
   const [deleteUserError, setDeleteUserError] = useState<string | null>(null)
+  const [showBackendInfo, setShowBackendInfo] = useState(false)
+  const titleClickCountRef = useRef(0)
+  const titleClickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (titleClickTimeoutRef.current) {
+        clearTimeout(titleClickTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     setThemePreferenceState(getThemePreference())
@@ -61,6 +72,24 @@ export default function SettingsPage({
 
   const isDark = theme === "dark"
   const isBusy = isLoggingOut || isDeletingAll || isDeletingUser
+
+  const handleTitleClick = () => {
+    if (showBackendInfo) return
+
+    if (titleClickTimeoutRef.current) {
+      clearTimeout(titleClickTimeoutRef.current)
+    }
+
+    titleClickCountRef.current += 1
+    if (titleClickCountRef.current >= 5) {
+      setShowBackendInfo(true)
+      titleClickCountRef.current = 0
+    } else {
+      titleClickTimeoutRef.current = setTimeout(() => {
+        titleClickCountRef.current = 0
+      }, 1500)
+    }
+  }
 
   const handleSelectPreference = (pref: ThemePreference) => {
     setThemePreference(pref)
@@ -149,7 +178,12 @@ export default function SettingsPage({
       className={css.settingsPage}
       aria-label="Settings">
       <div className={css.topBar}>
-        <h2 className={css.pageTitle}>Settings</h2>
+        <h2
+          className={css.pageTitle}
+          onClick={handleTitleClick}
+          title="Settings">
+          Settings
+        </h2>
         <button
           type="button"
           className={css.backBtn}
@@ -207,18 +241,20 @@ export default function SettingsPage({
         </div>
       </div>
 
-      <div className={css.card}>
-        <span className={css.sectionLabel}>Server Connection</span>
-        <div className={css.backendRow}>
-          <div className={css.settingTextGroup}>
-            <span className={css.settingTitle}>API Backend</span>
-            <span className={css.settingSubtitle}>
-              Connected server URL and health status
-            </span>
+      {showBackendInfo && (
+        <div className={css.card}>
+          <span className={css.sectionLabel}>Server Connection</span>
+          <div className={css.backendRow}>
+            <div className={css.settingTextGroup}>
+              <span className={css.settingTitle}>API Backend</span>
+              <span className={css.settingSubtitle}>
+                Connected server URL and health status
+              </span>
+            </div>
+            <BackendBadge />
           </div>
-          <BackendBadge />
         </div>
-      </div>
+      )}
 
       {isAuthenticated && (
         <>
