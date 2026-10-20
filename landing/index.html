@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="uk" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TemplaGem — Шаблони промптів зі змінними прямо в Google Gemini</title>
+  <meta
+    name="description"
+    content="Браузерне розширення для Google Gemini. Вставляйте готові шаблони промптів із підсвіченими {{змінними}}, перемикайтесь між ними клавішею Tab та синхронізуйте власну бібліотеку."
+  />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- ====================================================================
+       Header & Navigation
+       ==================================================================== -->
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a href="#" class="brand-link" aria-label="TemplaGem Home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 12 12 7.5 12 2Z"
+              fill="#1a73e8"
+            />
+            <path
+              d="M11 7.5L15.5 12L11 16.5"
+              stroke="white"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+        <span>TemplaGem</span>
+        <span class="brand-version">MV3</span>
+      </a>
+
+      <nav aria-label="Primary navigation">
+        <ul class="nav-links">
+          <li>
+            <a
+              href="#interactive-demo"
+              data-i18n-uk="Інтерактивне демо"
+              data-i18n-en="Interactive demo"
+            >Інтерактивне демо</a>
+          </li>
+          <li>
+            <a
+              href="#how-it-works"
+              data-i18n-uk="Як це працює"
+              data-i18n-en="How it works"
+            >Як це працює</a>
+          </li>
+          <li>
+            <a
+              href="#capabilities"
+              data-i18n-uk="Можливості"
+              data-i18n-en="Capabilities"
+            >Можливості</a>
+          </li>
+          <li>
+            <a
+              href="#install"
+              data-i18n-uk="Встановлення"
+              data-i18n-en="Installation"
+            >Встановлення</a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="nav-controls">
+        <button
+          type="button"
+          id="lang-toggle"
+          class="control-pill"
+          aria-label="Switch language"
+        ><span class="lang-active-prefix">UA / </span><span id="lang-unselected-label">EN</span></button>
+
+        <button
+          type="button"
+          id="theme-toggle"
+          class="control-pill"
+          aria-label="Toggle color theme"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+          <span id="theme-toggle-label">Dark</span>
+        </button>
+
+        <a
+          href="https://github.com/TemplaGem/TemplaGem/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-primary btn-sm"
+          data-i18n-uk="Завантажити .zip"
+          data-i18n-en="Download .zip"
+        >Завантажити .zip</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ====================================================================
+         Hero + Live Gemini Sandbox
+         ==================================================================== -->
+    <section class="hero-section" id="interactive-demo">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <div class="status-pill">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span
+              data-i18n-uk="Розширення для Google Gemini (Chrome / Brave / Edge)"
+              data-i18n-en="Browser extension for Google Gemini (Chrome / Brave / Edge)"
+            >Розширення для Google Gemini (Chrome / Brave / Edge)</span>
+          </div>
+
+          <h1
+            class="hero-title"
+            data-i18n-uk="Ваша бібліотека промптів зі змінними прямо в полі вводу Gemini"
+            data-i18n-en="Your variable-ready prompt library right inside Gemini's input"
+          >Ваша бібліотека промптів зі змінними прямо в полі вводу Gemini</h1>
+
+          <p
+            class="hero-description"
+            data-i18n-uk="Більше ніякого копіювання з нотаток. Клікніть у поле чату Gemini, оберіть шаблон, заповніть підсвічені {{змінні}} клавішею Tab і надішліть чистий запит одним натисканням Enter."
+            data-i18n-en="Stop copying prompts from scattered notes. Click into Gemini's chat box, pick a template, fill highlighted {{variables}} with Tab, and send a clean prompt on Enter."
+          >Більше ніякого копіювання з нотаток. Клікніть у поле чату Gemini, оберіть шаблон, заповніть підсвічені {{змінні}} клавішею Tab і надішліть чистий запит одним натисканням Enter.</p>
+
+          <div class="hero-actions">
+            <a
+              href="#install"
+              class="btn-primary"
+              data-i18n-uk="Встановити розширення"
+              data-i18n-en="Install extension"
+            >Встановити розширення</a>
+
+            <a
+              href="https://github.com/TemplaGem/TemplaGem"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn-secondary"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 0.3C5.37 0.3 0 5.67 0 12.3c0 5.3 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 22.1 24 17.6 24 12.3 24 5.67 18.63 0.3 12 0.3z"/>
+              </svg>
+              <span data-i18n-uk="Вихідний код на GitHub" data-i18n-en="Source on GitHub">Вихідний код на GitHub</span>
+            </a>
+          </div>
+
+          <div class="shortcut-strip" aria-label="Keyboard shortcuts">
+            <div
+              class="shortcut-strip-title"
+              data-i18n-uk="Керування з клавіатури прямо в чаті Gemini:"
+              data-i18n-en="Keyboard-first control inside Gemini chat:"
+            >Керування з клавіатури прямо в чаті Gemini:</div>
+            <div class="shortcut-items">
+              <div class="shortcut-item">
+                <kbd>↑</kbd><kbd>↓</kbd>
+                <span data-i18n-uk="вибір шаблону" data-i18n-en="select template">вибір шаблону</span>
+              </div>
+              <div class="shortcut-item">
+                <kbd>Tab</kbd>
+                <span data-i18n-uk="наступна {{змінна}}" data-i18n-en="next {{variable}}">наступна {{змінна}}</span>
+              </div>
+              <div class="shortcut-item">
+                <kbd>Enter</kbd>
+                <span data-i18n-uk="відправка без дужок" data-i18n-en="send without brackets">відправка без дужок</span>
+              </div>
+              <div class="shortcut-item">
+                <kbd>Esc</kbd>
+                <span data-i18n-uk="сховати меню" data-i18n-en="dismiss overlay">сховати меню</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Interactive Sandbox -->
+        <div class="sandbox-stage" role="region" aria-label="Interactive TemplaGem Simulator">
+          <div class="sandbox-topbar">
+            <div class="sandbox-tabs" role="tablist">
+              <button
+                type="button"
+                id="tab-overlay"
+                class="sandbox-tab"
+                role="tab"
+                aria-selected="true"
+                data-i18n-uk="1. Поле вводу Gemini"
+                data-i18n-en="1. Gemini Input Overlay"
+              >1. Поле вводу Gemini</button>
+              <button
+                type="button"
+                id="tab-popup"
+                class="sandbox-tab"
+                role="tab"
+                aria-selected="false"
+                data-i18n-uk="2. Попап розширення"
+                data-i18n-en="2. Extension Popup"
+              >2. Попап розширення</button>
+            </div>
+            <div class="sandbox-hint">
+              <span
+                data-i18n-uk="Живе демо — клікайте та друкуйте"
+                data-i18n-en="Live sandbox — click and type"
+              >Живе демо — клікайте та друкуйте</span>
+            </div>
+          </div>
+
+          <!-- View 1: Simulated Gemini Page + Docked Overlay -->
+          <div id="sandbox-overlay-view" class="sandbox-body">
+            <div>
+              <!-- Docked TemplaGem Popover -->
+              <div id="sim-popover" class="gemini-popover-sim" role="listbox" aria-label="TemplaGem Prompts">
+                <div class="popover-header">
+                  <div class="popover-brand">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 12 12 7.5 12 2Z" fill="#1a73e8"/>
+                      <path d="M11 7.5L15.5 12L11 16.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>TemplaGem</span>
+                  </div>
+
+                  <div class="popover-search-wrap">
+                    <svg class="popover-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input
+                      type="text"
+                      id="sim-search"
+                      class="popover-search"
+                      placeholder="Пошук промптів..."
+                      data-placeholder-uk="Пошук промптів..."
+                      data-placeholder-en="Search templates..."
+                      aria-label="Search templates"
+                    />
+                  </div>
+                </div>
+
+                <div id="sim-tags" class="popover-tags"></div>
+                <ul id="sim-prompt-list" class="popover-list"></ul>
+              </div>
+
+              <!-- Sent Message Log -->
+              <div id="sim-chat-log" class="gemini-chat-log" aria-live="polite"></div>
+            </div>
+
+            <!-- Simulated Gemini Rich Input Box -->
+            <div class="gemini-input-card">
+              <div
+                id="sim-gemini-editor"
+                class="gemini-editor"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Simulated Gemini prompt input"
+                data-placeholder="Введіть запит для Gemini або оберіть шаблон вище..."
+                data-placeholder-uk="Введіть запит для Gemini або оберіть шаблон вище..."
+                data-placeholder-en="Ask Gemini or pick a template above..."
+              ></div>
+
+              <div class="gemini-input-Readout">
+                <div class="gemini-Readout-actions">
+                  <button
+                    type="button"
+                    id="btn-toggle-popover"
+                    class="chip-action"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 12 12 7.5 12 2Z" fill="#1a73e8"/>
+                    </svg>
+                    <span data-i18n-uk="Шаблони" data-i18n-en="Templates">Шаблони</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-next-var"
+                    class="chip-action"
+                  >
+                    <kbd>Tab</kbd>
+                    <span data-i18n-uk="Наступна {{змінна}}" data-i18n-en="Next {{variable}}">Наступна {{змінна}}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-send-prompt"
+                  class="gemini-send-btn"
+                  aria-label="Send prompt to Gemini"
+                  title="Send (Enter)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- View 2: Simulated 400px Extension Popup -->
+          <div id="sandbox-popup-view" class="sandbox-body" style="display: none;">
+            <div class="popup-sim-wrapper">
+              <div class="popup-sim-frame">
+                <div class="popup-sim-header">
+                  <div class="popover-brand">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 12 12 7.5 12 2Z" fill="#1a73e8"/>
+                      <path d="M11 7.5L15.5 12L11 16.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>TemplaGem Popup</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    id="btn-toggle-add-form"
+                    class="popup-use-btn"
+                    data-i18n-uk="+ Новий шаблон"
+                    data-i18n-en="+ New Prompt"
+                  >+ Новий шаблон</button>
+                </div>
+
+                <div class="popup-sim-body">
+                  <!-- Create new prompt inline form -->
+                  <form
+                    id="popup-add-form"
+                    style="display: none; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--surface-canvas); border: 1px solid var(--border-strong);"
+                  >
+                    <input
+                      type="text"
+                      id="new-prompt-title"
+                      class="popover-search"
+                      style="padding-left: 10px;"
+                      placeholder="Назва шаблону..."
+                      data-placeholder-uk="Назва шаблону..."
+                      data-placeholder-en="Prompt title..."
+                      required
+                    />
+                    <textarea
+                      id="new-prompt-text"
+                      rows="2"
+                      style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--surface-interactive); font-size: 0.78rem; resize: vertical;"
+                      placeholder="Текст із {{змінною}}..."
+                      data-placeholder-uk="Текст із {{змінною}}..."
+                      data-placeholder-en="Template text with {{variable}}..."
+                      required
+                    ></textarea>
+                    <div style="display: flex; gap: 8px;">
+                      <input
+                        type="text"
+                        id="new-prompt-tag"
+                        class="popover-search"
+                        style="padding-left: 10px; flex: 1;"
+                        placeholder="Тег (напр. dev)"
+                        data-placeholder-uk="Тег (напр. dev)"
+                        data-placeholder-en="Tag (e.g. dev)"
+                      />
+                      <button
+                        type="submit"
+                        class="popup-use-btn"
+                        data-i18n-uk="Зберегти"
+                        data-i18n-en="Create"
+                      >Зберегти</button>
+                    </div>
+                  </form>
+
+                  <div class="popup-sim-toolbar">
+                    <input
+                      type="text"
+                      id="popup-sim-search"
+                      class="popover-search"
+                      style="padding-left: 12px; flex: 1;"
+                      placeholder="Фільтр за назвою або тегом..."
+                      data-placeholder-uk="Фільтр за назвою або тегом..."
+                      data-placeholder-en="Filter by title or tag..."
+                      aria-label="Filter popup prompts"
+                    />
+                    <select id="popup-sim-sort" class="popup-sim-select" aria-label="Sort prompts">
+                      <option value="created-desc">Newest first</option>
+                      <option value="created-asc">Oldest first</option>
+                      <option value="title-asc">A → Z</option>
+                      <option value="title-desc">Z → A</option>
+                      <option value="updated-desc">Recently updated</option>
+                    </select>
+                  </div>
+
+                  <div id="popup-sim-list" class="popup-card-list"></div>
+
+                  <div id="easter-egg-trigger" class="easter-egg-box" role="button" tabindex="0">
+                    <span
+                      data-i18n-uk="Пасхалка з Settings: клікніть 5 разів сюди"
+                      data-i18n-en="Settings Easter egg: click here 5 times"
+                    >Пасхалка з Settings: клікніть 5 разів сюди</span>
+                    <span id="easter-egg-status" class="mono">0/5</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         How It Works — 3-Step Chronological Sequence
+         ==================================================================== -->
+    <section class="page-section" id="how-it-works">
+      <div class="container">
+        <div class="section-header">
+          <h2
+            class="section-title"
+            data-i18n-uk="Від шаблону до готового запиту за три дії"
+            data-i18n-en="From template to clean prompt in three steps"
+          >Від шаблону до готового запиту за три дії</h2>
+          <p
+            class="section-subtitle"
+            data-i18n-uk="TemplaGem вбудовується безпосередньо в Quill-редактор сторінки gemini.google.com і бере на себе всю рутину з форматуванням."
+            data-i18n-en="TemplaGem hooks directly into the Quill editor on gemini.google.com and handles variable highlighting and cleanup automatically."
+          >TemplaGem вбудовується безпосередньо в Quill-редактор сторінки gemini.google.com і бере на себе всю рутину з форматуванням.</p>
+        </div>
+
+        <div class="pipeline-grid">
+          <article class="pipeline-step">
+            <div>
+              <div class="step-header">
+                <span class="step-number">01 / Focus</span>
+                <kbd>Click</kbd>
+              </div>
+              <h3
+                class="step-title"
+                style="margin-top: 14px;"
+                data-i18n-uk="Миттєвий доступ біля поля вводу"
+                data-i18n-en="Instant overlay docked to Gemini's input"
+              >Миттєвий доступ біля поля вводу</h3>
+              <p
+                class="step-desc"
+                data-i18n-uk="Щойно ви ставите курсор у поле чату Gemini, над ним з'являється легке вікно зі списком ваших шаблонів, пошуком та фільтрацією за тегами."
+                data-i18n-en="As soon as you focus Gemini's chat input, a lightweight popover docks above it with instant search and tag filtering."
+              >Щойно ви ставите курсор у поле чату Gemini, над ним з'являється легке вікно зі списком ваших шаблонів, пошуком та фільтрацією за тегами.</p>
+            </div>
+            <div class="step-code-preview mono">
+              #навчання &nbsp; #код &nbsp; #email<br />
+              ▸ Конспект матеріалу<br />
+              &nbsp;&nbsp;Code Review &amp; Refactor
+            </div>
+          </article>
+
+          <article class="pipeline-step">
+            <div>
+              <div class="step-header">
+                <span class="step-number">02 / Fill</span>
+                <kbd>Tab</kbd>
+              </div>
+              <h3
+                class="step-title"
+                style="margin-top: 14px;"
+                data-i18n-uk="Підсвічування {{змінних}} та навігація"
+                data-i18n-en="Highlighted {{variables}} & Tab jumping"
+              >Підсвічування {{змінних}} та навігація</h3>
+              <p
+                class="step-desc"
+                data-i18n-uk="Кожен параметр у подвійних фігурних дужках перетворюється на інтерактивний токен. Почніть друкувати, щоб замінити значення, і натискайте Tab для переходу далі."
+                data-i18n-en="Every double-brace token becomes an interactive pill. Start typing to replace its value immediately, and press Tab to jump to the next variable."
+              >Кожен параметр у подвійних фігурних дужках перетворюється на інтерактивний токен. Почніть друкувати, щоб замінити значення, і натискайте Tab для переходу далі.</p>
+            </div>
+            <div class="step-code-preview">
+              Зроби конспект за темою:
+              <span class="ph-template-variable ph-template-variable-active">{{тема}}</span>
+              для рівня
+              <span class="ph-template-variable">{{рівень}}</span>
+            </div>
+          </article>
+
+          <article class="pipeline-step">
+            <div>
+              <div class="step-header">
+                <span class="step-number">03 / Send</span>
+                <kbd>Enter</kbd>
+              </div>
+              <h3
+                class="step-title"
+                style="margin-top: 14px;"
+                data-i18n-uk="Автоматичне очищення дужок при відправці"
+                data-i18n-en="Automatic bracket stripping on send"
+              >Автоматичне очищення дужок при відправці</h3>
+              <p
+                class="step-desc"
+                data-i18n-uk="Навіть якщо ви залишили якусь змінну за замовчуванням, під час натискання Enter або кнопки відправки розширення прибере службові дужки {{ }}."
+                data-i18n-en="Even if you leave a default variable untouched, pressing Enter or clicking Gemini's send button automatically strips all {{ }} braces."
+              >Навіть якщо ви залишили якусь змінну за замовчуванням, під час натискання Enter або кнопки відправки розширення прибере службові дужки {{ }}.</p>
+            </div>
+            <div class="step-code-preview mono">
+              <span style="color: var(--text-muted); text-decoration: line-through;">{{TypeScript}}</span>
+              → <span style="color: var(--icon-green-fg);">TypeScript</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         Capabilities & Architecture (Bento Grid)
+         ==================================================================== -->
+    <section class="page-section" id="capabilities">
+      <div class="container">
+        <div class="section-header">
+          <h2
+            class="section-title"
+            data-i18n-uk="Спроектовано спеціально під екосистему Google Gemini"
+            data-i18n-en="Engineered specifically for the Google Gemini workspace"
+          >Спроектовано спеціально під екосистему Google Gemini</h2>
+          <p
+            class="section-subtitle"
+            data-i18n-uk="Жодних важких фреймворків поверх сторінки чи конфліктів із політиками безпеки браузера."
+            data-i18n-en="Zero layout shift, Trusted Types compliant DOM manipulation, and instant local caching."
+          >Жодних важких фреймворків поверх сторінки чи конфліктів із політиками безпеки браузера.</p>
+        </div>
+
+        <div class="bento-grid">
+          <!-- Card 1: 40+ Curated Icons & Categories -->
+          <div class="bento-card bento-span-7">
+            <div>
+              <h3
+                class="bento-title"
+                data-i18n-uk="40+ тематичних іконок у 5 категоріях та 6 режимів сортування"
+                data-i18n-en="40+ curated icons across 5 categories and 6 sort modes"
+              >40+ тематичних іконок у 5 категоріях та 6 режимів сортування</h3>
+              <p
+                class="bento-text"
+                data-i18n-uk="Призначайте кожному шаблону власну кольорову іконку (AI & Tech, Writing & Learning, Productivity, Media & Fun) та впорядковуйте список за датою створення, оновлення або алфавітом."
+                data-i18n-en="Assign color-coded Lucide icons across AI & Tech, Writing & Learning, Productivity, and Media, and sort templates by creation date, modification time, or title."
+              >Призначайте кожному шаблону власну кольорову іконку (AI & Tech, Writing & Learning, Productivity, Media & Fun) та впорядковуйте список за датою створення, оновлення або алфавітом.</p>
+            </div>
+
+            <div class="icon-showcase-grid">
+              <span class="icon-pill-demo">
+                <span class="prompt-icon-box" data-color="blue" style="width: 26px; height: 26px;">✦</span>
+                <span>Sparkles · AI &amp; Tech</span>
+              </span>
+              <span class="icon-pill-demo">
+                <span class="prompt-icon-box" data-color="purple" style="width: 26px; height: 26px;">&lt;/&gt;</span>
+                <span>Code · Dev</span>
+              </span>
+              <span class="icon-pill-demo">
+                <span class="prompt-icon-box" data-color="green" style="width: 26px; height: 26px;">✎</span>
+                <span>Writing &amp; Study</span>
+              </span>
+              <span class="icon-pill-demo">
+                <span class="prompt-icon-box" data-color="amber" style="width: 26px; height: 26px;">⚡</span>
+                <span>Productivity</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Card 2: Cloud Sync + Offline Cache -->
+          <div class="bento-card bento-span-5">
+            <div>
+              <h3
+                class="bento-title"
+                data-i18n-uk="Хмарна синхронізація + миттєвий кеш"
+                data-i18n-en="Cloud sync + instant local cache"
+              >Хмарна синхронізація + миттєвий кеш</h3>
+              <p
+                class="bento-text"
+                data-i18n-uk="Шаблони синхронізуються з вашим обліковим записом через захищений REST API (JWT + автооновлення токенів) і дублюються в локальному сховищі браузера для миттєвого відкриття."
+                data-i18n-en="Prompts sync with your account via JWT-authenticated REST API and mirror to chrome.storage.local for zero-latency opening."
+              >Шаблони синхронізуються з вашим обліковим записом через захищений REST API (JWT + автооновлення токенів) і дублюються в локальному сховищі браузера для миттєвого відкриття.</p>
+            </div>
+
+            <div class="step-code-preview mono">
+              TanStack Query → Background SW → chrome.storage.local
+            </div>
+          </div>
+
+          <!-- Card 3: Trusted Types & Quill Engine -->
+          <div class="bento-card bento-span-6">
+            <div>
+              <h3
+                class="bento-title"
+                data-i18n-uk="Сумісність із Trusted Types та Quill"
+                data-i18n-en="Trusted Types & Quill editor native sync"
+              >Сумісність із Trusted Types та Quill</h3>
+              <p
+                class="bento-text"
+                data-i18n-uk="Сторінка gemini.google.com блокує звичайний innerHTML через політику Trusted Types. TemplaGem використовує DOM TreeWalker та нативні діапазони Range, не ламаючи внутрішній стан редактора."
+                data-i18n-en="gemini.google.com enforces strict Trusted Types CSP. TemplaGem uses DOM TreeWalker and native Range nodes to highlight variables without corrupting Quill state."
+              >Сторінка gemini.google.com блокує звичайний innerHTML через політику Trusted Types. TemplaGem використовує DOM TreeWalker та нативні діапазони Range, не ламаючи внутрішній стан редактора.</p>
+            </div>
+          </div>
+
+          <!-- Card 4: Technical Specs -->
+          <div class="bento-card bento-span-6">
+            <div>
+              <h3
+                class="bento-title"
+                data-i18n-uk="Технічний стек проєкту"
+                data-i18n-en="Technical specifications"
+              >Технічний стек проєкту</h3>
+            </div>
+            <ul class="spec-list">
+              <li class="spec-item">
+                <div class="spec-item-label">Framework</div>
+                <div class="spec-item-value">Plasmo MV3 + React 18</div>
+              </li>
+              <li class="spec-item">
+                <div class="spec-item-label">State &amp; Validation</div>
+                <div class="spec-item-value">TanStack Query v5 + Zod v4</div>
+              </li>
+              <li class="spec-item">
+                <div class="spec-item-label">Theme Engine</div>
+                <div class="spec-item-value">Auto / Light / Dark Sync</div>
+              </li>
+              <li class="spec-item">
+                <div class="spec-item-label">Quality Assurance</div>
+                <div class="spec-item-value">Vitest (&gt;85% cov) + Playwright</div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         Installation Section
+         ==================================================================== -->
+    <section class="page-section" id="install">
+      <div class="container">
+        <div class="section-header">
+          <h2
+            class="section-title"
+            data-i18n-uk="Встановлення за 30 секунд"
+            data-i18n-en="Install in 30 seconds"
+          >Встановлення за 30 секунд</h2>
+          <p
+            class="section-subtitle"
+            data-i18n-uk="Оберіть зручний спосіб: завантажте готовий архів із GitHub Releases або зберіть розширення локально з вихідного коду."
+            data-i18n-en="Download the ready-to-use release archive or build directly from source."
+          >Оберіть зручний спосіб: завантажте готовий архів із GitHub Releases або зберіть розширення локально з вихідного коду.</p>
+        </div>
+
+        <div class="install-box">
+          <div class="install-tabs" role="tablist">
+            <button
+              type="button"
+              id="install-tab-release"
+              class="install-tab"
+              role="tab"
+              aria-selected="true"
+              data-i18n-uk="Спосіб 1: З готового релізу (.zip)"
+              data-i18n-en="Option 1: From GitHub Release (.zip)"
+            >Спосіб 1: З готового релізу (.zip)</button>
+            <button
+              type="button"
+              id="install-tab-source"
+              class="install-tab"
+              role="tab"
+              aria-selected="false"
+              data-i18n-uk="Спосіб 2: Збірка з вихідного коду"
+              data-i18n-en="Option 2: Build from source"
+            >Спосіб 2: Збірка з вихідного коду</button>
+          </div>
+
+          <!-- Option 1: Release ZIP -->
+          <div id="install-panel-release" class="install-steps">
+            <div class="install-card">
+              <div class="step-number" style="align-self: flex-start;">Крок 1</div>
+              <h3
+                class="install-card-title"
+                data-i18n-uk="Завантажте архів збірки"
+                data-i18n-en="Download the release archive"
+              >Завантажте архів збірки</h3>
+              <p
+                class="install-card-text"
+                data-i18n-uk="Перейдіть у розділ Releases на GitHub, завантажте файл chrome-mv3-prod.zip та розпакуйте його у зручну папку."
+                data-i18n-en="Download chrome-mv3-prod.zip from the latest GitHub Release and extract it to a folder."
+              >Перейдіть у розділ Releases на GitHub, завантажте файл chrome-mv3-prod.zip та розпакуйте його у зручну папку.</p>
+              <a
+                href="https://github.com/TemplaGem/TemplaGem/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-secondary btn-sm"
+                style="align-self: flex-start;"
+                data-i18n-uk="Відкрити GitHub Releases"
+                data-i18n-en="Open GitHub Releases"
+              >Відкрити GitHub Releases</a>
+            </div>
+
+            <div class="install-card">
+              <div class="step-number" style="align-self: flex-start;">Крок 2</div>
+              <h3
+                class="install-card-title"
+                data-i18n-uk="Увімкніть Режим розробника"
+                data-i18n-en="Enable Developer Mode"
+              >Увімкніть Режим розробника</h3>
+              <p
+                class="install-card-text"
+                data-i18n-uk="Відкрийте сторінку керування розширеннями у вашому браузері та активуйте перемикач Developer mode у верхньому кутку."
+                data-i18n-en="Open your browser's extensions page and toggle on Developer mode in the top-right corner."
+              >Відкрийте сторінку керування розширеннями у вашому браузері та активуйте перемикач Developer mode у верхньому кутку.</p>
+              <div class="code-copy-bar mono">
+                <span>chrome://extensions</span>
+                <button type="button" class="copy-btn" data-copy="chrome://extensions" data-i18n-uk="Копіювати" data-i18n-en="Copy">Копіювати</button>
+              </div>
+            </div>
+
+            <div class="install-card">
+              <div class="step-number" style="align-self: flex-start;">Крок 3</div>
+              <h3
+                class="install-card-title"
+                data-i18n-uk="Завантажте розпаковане розширення"
+                data-i18n-en="Load unpacked extension"
+              >Завантажте розпаковане розширення</h3>
+              <p
+                class="install-card-text"
+                data-i18n-uk="Натисніть «Load unpacked» (Завантажити розпаковане) і виберіть розпаковану папку chrome-mv3-prod. Готово!"
+                data-i18n-en="Click 'Load unpacked' and select the extracted chrome-mv3-prod directory. Open gemini.google.com and enjoy!"
+              >Натисніть «Load unpacked» (Завантажити розпаковане) і виберіть розпаковану папку chrome-mv3-prod. Готово!</p>
+            </div>
+          </div>
+
+          <!-- Option 2: From Source -->
+          <div id="install-panel-source" class="install-steps" style="display: none;">
+            <div class="install-card">
+              <div class="step-number" style="align-self: flex-start;">Крок 1</div>
+              <h3
+                class="install-card-title"
+                data-i18n-uk="Клонуйте репозиторій"
+                data-i18n-en="Clone the repository"
+              >Клонуйте репозиторій</h3>
+              <p
+                class="install-card-text"
+                data-i18n-uk="Склонуйте проєкт TemplaGem та встановіть залежності через pnpm."
+                data-i18n-en="Clone the TemplaGem repository and install dependencies with pnpm."
+              >Склонуйте проєкт TemplaGem та встановіть залежності через pnpm.</p>
+              <div class="code-copy-bar mono">
+                <span>pnpm install</span>
+                <button type="button" class="copy-btn" data-copy="pnpm install" data-i18n-uk="Копіювати" data-i18n-en="Copy">Копіювати</button>
+              </div>
+            </div>
+
+            <div class="install-card">
+              <div class="step-number" style="align-self: flex-start;">Крок 2</div>
+              <h3
+                class="install-card-title"
+                data-i18n-uk="Зберіть production-бандл"
+                data-i18n-en="Build the production bundle"
+              >Зберіть production-бандл</h3>
+              <p
+                class="install-card-text"
+                data-i18n-uk="Виконайте команду збірки Plasmo. Готове розширення з'явиться в папці build/chrome-mv3-prod."
+                data-i18n-en="Run the Plasmo build script. The bundle will be generated inside build/chrome-mv3-prod."
+              >Виконайте команду збірки Plasmo. Готове розширення з'явиться в папці build/chrome-mv3-prod.</p>
+              <div class="code-copy-bar mono">
+                <span>pnpm build</span>
+                <button type="button" class="copy-btn" data-copy="pnpm build" data-i18n-uk="Копіювати" data-i18n-en="Copy">Копіювати</button>
+              </div>
+            </div>
+
+            <div class="install-card">
+              <div class="step-number" style="align-self: flex-start;">Крок 3</div>
+              <h3
+                class="install-card-title"
+                data-i18n-uk="Додайте в браузер"
+                data-i18n-en="Load into browser"
+              >Додайте в браузер</h3>
+              <p
+                class="install-card-text"
+                data-i18n-uk="На сторінці chrome://extensions натисніть «Load unpacked» та вкажіть шлях до build/chrome-mv3-prod."
+                data-i18n-en="In chrome://extensions, click 'Load unpacked' and select build/chrome-mv3-prod."
+              >На сторінці chrome://extensions натисніть «Load unpacked» та вкажіть шлях до build/chrome-mv3-prod.</p>
+              <div class="code-copy-bar mono">
+                <span>build/chrome-mv3-prod</span>
+                <button type="button" class="copy-btn" data-copy="build/chrome-mv3-prod" data-i18n-uk="Копіювати" data-i18n-en="Copy">Копіювати</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ====================================================================
+       Footer
+       ==================================================================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-meta">
+        <span>TemplaGem · Built by skyzary</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/TemplaGem/TemplaGem" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/TemplaGem/TemplaGem/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+        <a href="https://gemini.google.com" target="_blank" rel="noopener noreferrer">Google Gemini</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
