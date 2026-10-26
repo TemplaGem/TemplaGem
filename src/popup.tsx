@@ -6,7 +6,6 @@ import AuthForm from "~src/components/AuthForm/AuthForm"
 import CreatePromptModal from "~src/components/CreatePromptModal/CreatePromptModal"
 import Header from "~src/components/Header/Header"
 import ListSection from "~src/components/ListSection/ListSection"
-import OnboardingModal from "~src/components/OnboardingModal/OnboardingModal"
 import SearchField from "~src/components/SearchField/SearchField"
 import SettingsPage from "~src/components/SettingsPage/SettingsPage"
 import { createDefaultQueryClient } from "~src/contents/gemini-query-client"
@@ -23,9 +22,6 @@ import {
   setRefreshToken,
   subscribeAuthChange
 } from "~src/utils/auth"
-import {
-  checkOnboardingCompleted
-} from "~src/utils/onboarding"
 import {
   getTheme,
   subscribeThemeChange,
@@ -52,16 +48,7 @@ export default function Popup() {
   const [theme, setThemeState] = useState<ThemeMode>(() => getTheme())
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-
-  useEffect(() => {
-    void checkOnboardingCompleted().then((completed) => {
-      if (!completed) {
-        setIsOnboardingOpen(true)
-      }
-    })
-  }, [])
 
   useEffect(() => {
     setThemeState(getTheme())
@@ -222,16 +209,11 @@ export default function Popup() {
         <Header
           isSettingsOpen={isSettingsOpen}
           onSettingsClick={() => setIsSettingsOpen((prev) => !prev)}
-          onHelpClick={() => setIsOnboardingOpen(true)}
         />
         {isSettingsOpen ? (
           <SettingsPage
             isAuthenticated={isAuthenticated}
             onBack={() => setIsSettingsOpen(false)}
-            onOpenTutorial={() => {
-              setIsSettingsOpen(false)
-              setIsOnboardingOpen(true)
-            }}
             onOpenAuth={() => {
               setIsGuestMode(false)
               if (typeof window !== "undefined" && window.localStorage) {
@@ -288,10 +270,6 @@ export default function Popup() {
             onContinueOffline={handleContinueOffline}
           />
         )}
-        <OnboardingModal
-          isOpen={isOnboardingOpen}
-          onClose={() => setIsOnboardingOpen(false)}
-        />
       </div>
     </QueryClientProvider>
   )
