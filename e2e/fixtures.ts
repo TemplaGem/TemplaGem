@@ -216,9 +216,14 @@ export async function seedStorage(
             "templagem_refresh_token",
             "templagem_prompts_cache"
           ])
+          await chrome.storage.local.set({
+            templagem_onboarding_completed: true
+          })
           return
         }
-        const toSet: Record<string, unknown> = {}
+        const toSet: Record<string, unknown> = {
+          templagem_onboarding_completed: true
+        }
         if (payload.token !== undefined) {
           toSet.templagem_access_token = payload.token
           toSet.templagem_refresh_token = payload.refreshToken
@@ -261,6 +266,7 @@ export async function openPopupPage(
   if (authenticated) {
     await page.addInitScript(
       ({ authToken, refreshTok, cachedPrompts }) => {
+        localStorage.setItem("templagem_onboarding_completed", "true")
         localStorage.setItem("templagem_access_token", authToken)
         localStorage.setItem("templagem_refresh_token", refreshTok)
         localStorage.setItem(
@@ -273,6 +279,7 @@ export async function openPopupPage(
   } else {
     await page.addInitScript(() => {
       localStorage.clear()
+      localStorage.setItem("templagem_onboarding_completed", "true")
     })
   }
 
