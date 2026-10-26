@@ -747,4 +747,44 @@ describe("Offline-First Sync Engine", () => {
     })
   })
 
+  describe("Guest / Offline Mode", () => {
+    it("renders continue offline button, unlocks popup, and allows creating an account from offline mode", async () => {
+      const user = userEvent.setup()
+      await saveStoredPrompts([
+        { _id: "local-1", title: "Local Offline Prompt", body: "Body", tags: [] }
+      ])
+
+      render(<Popup />)
+
+      // Initially shows auth form with offline button in English
+      const offlineBtn = screen.getByRole("button", {
+        name: /work locally without account/i
+      })
+      expect(offlineBtn).toBeInTheDocument()
+
+      await user.click(offlineBtn)
+
+      // Immediately switches to list view showing local prompt
+      expect(
+        await screen.findByText("Local Offline Prompt")
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole("textbox", { name: /search prompts/i })
+      ).toBeInTheDocument()
+
+      // Shows banner allowing user to register / sign in at any time
+      const banner = screen.getByTestId("offline-notice-banner")
+      expect(banner).toBeInTheDocument()
+      const signInLink = screen.getByRole("button", {
+        name: /sign in \/ register/i
+      })
+      expect(signInLink).toBeInTheDocument()
+
+      // Clicking Sign In / Register in offline mode returns to AuthForm to create an account
+      await user.click(signInLink)
+      expect(
+        await screen.findByRole("button", { name: /create account/i })
+      ).toBeInTheDocument()
+    })
+  })
 })
