@@ -86,3 +86,40 @@ textarea {
     background-color $transition-medium,
     color $transition-medium;
 }
+
+.offlineNoticeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: $space-base $space-4xl $space-0 $space-4xl;
+  padding: 6px 12px;
+  background-color: $bg-secondary;
+  border: $border-width solid $border-color;
+  border-radius: $radius-lg;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+}
+
+.offlineNoticeText {
+  display: flex;
+  align-items: center;
+  font-weight: $font-weight-medium;
+}
+
+.offlineSignInLink {
+  background: transparent;
+  border: none;
+  color: $accent-color;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: $radius-sm;
+  transition:
+    background-color $transition-fast,
+    color $transition-fast;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

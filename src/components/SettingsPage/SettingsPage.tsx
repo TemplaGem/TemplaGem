@@ -7,12 +7,15 @@ import {
   MdLightMode,
   MdLogout,
   MdPersonRemove,
+  MdPlayCircleOutline,
   MdWarningAmber
 } from "react-icons/md"
 import * as z from "zod"
 
 import Btn from "~src/components/ui/Btn/Btn"
 import { deleteAllPrompts, invalidatePromptsCache } from "~src/prompts-api"
+import { clearPromptsDB } from "~src/services/indexed-db"
+import { clearSyncQueue } from "~src/services/sync-storage"
 import { deleteUser } from "~src/user-api"
 import { logout } from "~src/utils/auth"
 import {
@@ -30,11 +33,15 @@ import css from "./SettingsPage.module.scss"
 interface SettingsPageProps {
   onBack: () => void
   isAuthenticated?: boolean
+  onOpenAuth?: () => void
+  onOpenTutorial?: () => void
 }
 
 export default function SettingsPage({
   onBack,
-  isAuthenticated = false
+  isAuthenticated = false,
+  onOpenAuth,
+  onOpenTutorial
 }: SettingsPageProps) {
   const [theme, setThemeState] = useState<ThemeMode>(() => getTheme())
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>(
@@ -126,6 +133,8 @@ export default function SettingsPage({
     setIsDeletingAll(true)
     try {
       await deleteAllPrompts()
+      await clearPromptsDB().catch(() => null)
+      await clearSyncQueue().catch(() => null)
       setIsConfirmModalOpen(false)
       setDeleteAllSuccess("All prompts have been deleted.")
     } catch (err) {
@@ -157,6 +166,8 @@ export default function SettingsPage({
     setIsDeletingUser(true)
     try {
       await deleteUser({ password: deleteUserPassword })
+      await clearPromptsDB().catch(() => null)
+      await clearSyncQueue().catch(() => null)
       invalidatePromptsCache()
       setIsDeleteUserModalOpen(false)
       onBack()
@@ -241,6 +252,28 @@ export default function SettingsPage({
         </div>
       </div>
 
+      {onOpenTutorial && (
+        <div className={css.card}>
+          <span className={css.sectionLabel}>Guide & Tutorial</span>
+          <div className={css.settingRow}>
+            <div className={css.settingTextGroup}>
+              <span className={css.settingTitle}>Watch Walkthrough</span>
+              <span className={css.settingSubtitle}>
+                Animated motion graphics guide & tips
+              </span>
+            </div>
+            <Btn
+              type="button"
+              styleType="secondary"
+              onClick={onOpenTutorial}
+              aria-label="Replay Onboarding Guide">
+              <MdPlayCircleOutline size={16} />
+              <span>Watch</span>
+            </Btn>
+          </div>
+        </div>
+      )}
+
       {showBackendInfo && (
         <div className={css.card}>
           <span className={css.sectionLabel}>Server Connection</span>
@@ -252,6 +285,27 @@ export default function SettingsPage({
               </span>
             </div>
             <BackendBadge />
+          </div>
+        </div>
+      )}
+
+      {!isAuthenticated && onOpenAuth && (
+        <div className={css.card}>
+          <span className={css.sectionLabel}>Account</span>
+          <div className={css.settingRow}>
+            <div className={css.settingTextGroup}>
+              <span className={css.settingTitle}>Offline Mode</span>
+              <span className={css.settingSubtitle}>
+                Prompts are saved locally. Sign in or register to enable cloud sync.
+              </span>
+            </div>
+            <Btn
+              type="button"
+              styleType="primary"
+              onClick={onOpenAuth}
+              className={css.modalActionBtn}>
+              Sign In / Register
+            </Btn>
           </div>
         </div>
       )}

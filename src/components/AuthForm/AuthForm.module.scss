@@ -181,6 +181,58 @@
   }
 }
 
+.divider {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  margin: $space-2xs 0;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background-color: $border-color;
+}
+
+.dividerText {
+  font-size: $font-size-xs;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.offlineBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: $btn-height-xl;
+  padding: 0 16px;
+  background-color: transparent;
+  color: $text-secondary;
+  border: 1px dashed $border-color;
+  border-radius: $radius-pill;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    background-color $transition-fast,
+    color $transition-fast,
+    border-color $transition-fast;
+
+  &:hover {
+    background-color: $bg-secondary;
+    color: $text-primary;
+    border-color: $text-muted;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 1px;
+  }
+}
+
 .backendFooter {
   display: flex;
   justify-content: center;
