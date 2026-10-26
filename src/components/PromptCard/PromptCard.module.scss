@@ -31,6 +31,11 @@
   &:active {
     box-shadow: none;
   }
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 2px;
+  }
 }
 
 .promptCardContent {
@@ -85,8 +90,8 @@
   justify-content: center;
   background-color: transparent;
   border: none;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: $radius-pill;
   cursor: pointer;
   flex-shrink: 0;
@@ -103,6 +108,11 @@
 
   &:active {
     transform: scale(0.95);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 1px;
   }
 }
 

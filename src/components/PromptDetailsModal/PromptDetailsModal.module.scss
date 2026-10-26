@@ -32,7 +32,7 @@
 
 .modalHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: $space-xl;
   padding-bottom: $space-2xl;
@@ -41,10 +41,17 @@
 
 .headerMain {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: $space-xl;
   flex: 1;
   min-width: 0;
+}
+
+.headerRightActions {
+  display: flex;
+  align-items: center;
+  gap: $space-md;
+  flex-shrink: 0;
 }
 
 .titleDisplayRow {
@@ -88,6 +95,11 @@
     color: $text-primary;
     background-color: $bg-hover;
   }
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 1px;
+  }
 }
 
 .section {
@@ -122,13 +134,13 @@
   align-items: center;
   justify-content: center;
   gap: $space-md;
-  min-height: $btn-height-sm;
+  min-height: 28px;
   background-color: $bg-secondary;
   border: $border-width solid $border-color;
   color: $text-secondary;
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: $radius-pill;
   cursor: pointer;
   transition:
@@ -139,6 +151,14 @@
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
+    background-color: $bg-hover;
+    border-color: $accent-border;
+    color: $text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 1px;
   }
 
   &:disabled {
@@ -147,47 +167,15 @@
   }
 }
 
-.editTitleBtn {
-  background-color: #e8f0fe;
-  border-color: rgba(11, 87, 208, 0.25);
-  color: #0b57d0;
+.editBtn {
+  background-color: $bg-secondary;
+  border-color: $border-color;
+  color: $text-secondary;
 
   &:hover:not(:disabled) {
-    background-color: #d2e3fc;
-    color: #0842a0;
-  }
-
-  :global([data-theme="dark"]) & {
-    background-color: rgba(168, 199, 250, 0.16);
-    border-color: rgba(168, 199, 250, 0.32);
-    color: #a8c7fa;
-
-    &:hover:not(:disabled) {
-      background-color: rgba(168, 199, 250, 0.25);
-      color: #c2e7ff;
-    }
-  }
-}
-
-.editTagsBtn {
-  background-color: #f3e8fd;
-  border-color: rgba(132, 48, 206, 0.25);
-  color: #8430ce;
-
-  &:hover:not(:disabled) {
-    background-color: #e8d0fb;
-    color: #681da8;
-  }
-
-  :global([data-theme="dark"]) & {
-    background-color: rgba(197, 138, 249, 0.16);
-    border-color: rgba(197, 138, 249, 0.32);
-    color: #c58af9;
-
-    &:hover:not(:disabled) {
-      background-color: rgba(197, 138, 249, 0.25);
-      color: #e8d0fb;
-    }
+    background-color: $accent-soft;
+    border-color: $accent-border;
+    color: $accent-color;
   }
 }
 
@@ -211,70 +199,6 @@
       color: #a7f3d0;
     }
   }
-}
-
-.editPromptBtn {
-  background-color: #fef7e0;
-  border-color: rgba(176, 96, 0, 0.25);
-  color: #b06000;
-
-  &:hover:not(:disabled) {
-    background-color: #feefc3;
-    color: #804400;
-  }
-
-  :global([data-theme="dark"]) & {
-    background-color: rgba(253, 214, 99, 0.16);
-    border-color: rgba(253, 214, 99, 0.32);
-    color: #fdd663;
-
-    &:hover:not(:disabled) {
-      background-color: rgba(253, 214, 99, 0.25);
-      color: #feefc3;
-    }
-  }
-}
-
-.cancelInlineBtn {
-  background-color: $bg-secondary;
-  border-color: $border-color;
-  color: $text-secondary;
-
-  &:hover:not(:disabled) {
-    background-color: $bg-hover;
-    color: $text-primary;
-  }
-}
-
-.saveInlineBtn {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
-  color: #ffffff;
-
-  :global([data-theme="dark"]) & {
-    color: #042e6f;
-  }
-
-  &:hover:not(:disabled) {
-    background-color: var(--btn-primary-hover);
-    border-color: var(--btn-primary-hover);
-  }
-}
-
-.editButtonsRow {
-  display: flex;
-  gap: $space-lg;
-  width: 100%;
-  margin-top: $space-2xs;
-}
-
-.editSectionBtn {
-  flex: 1;
-  min-height: $btn-height-md;
-  font-size: $font-size-md;
-  font-weight: $font-weight-medium;
-  padding: $space-base $space-2xl;
-  border-radius: $radius-pill;
 }
 
 .input,

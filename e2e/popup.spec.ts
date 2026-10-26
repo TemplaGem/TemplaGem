@@ -191,6 +191,25 @@ test.describe("Popup Extension Interface (E2E)", () => {
     await copyBtn.click()
     await expect(detailsModal.getByText("Copied!")).toBeVisible()
 
+    // Test unified Edit mode
+    const editBtn = detailsModal.getByRole("button", {
+      name: "Edit",
+      exact: true
+    })
+    await expect(editBtn).toBeVisible()
+    await editBtn.click()
+
+    const titleInput = detailsModal.getByLabel("Title")
+    await expect(titleInput).toBeVisible()
+    await titleInput.fill("Updated Code Review Assistant")
+
+    await detailsModal.getByRole("button", { name: "Save changes" }).click()
+    await expect(
+      detailsModal.getByRole("heading", {
+        name: "Updated Code Review Assistant"
+      })
+    ).toBeVisible()
+
     // Close modal
     await detailsModal
       .getByRole("button", { name: "Close", exact: true })
