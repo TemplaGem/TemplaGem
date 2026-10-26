@@ -106,5 +106,20 @@ describe("Seed Initial Prompts on Frontend", () => {
       const stored = await getStoredPrompts()
       expect(stored).toHaveLength(0)
     })
+
+    it("handles force re-seeding and seed when isInit but existing prompts empty", async () => {
+      // 1. Force re-seed
+      const forced = await seedInitialPrompts(true)
+      expect(forced).toHaveLength(INITIAL_TEST_PROMPTS.length)
+
+      // 2. isInit true but empty existing in DB
+      await clearPromptsDB()
+      const reseeded = await seedInitialPrompts(false)
+      expect(reseeded).toHaveLength(INITIAL_TEST_PROMPTS.length)
+
+      // 3. Subsequent call with existing in queue
+      const existingRun = await seedInitialPrompts(true)
+      expect(existingRun).toHaveLength(INITIAL_TEST_PROMPTS.length)
+    })
   })
 })

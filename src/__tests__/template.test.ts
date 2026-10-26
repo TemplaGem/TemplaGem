@@ -98,11 +98,12 @@ describe("template utility", () => {
       expect(fillTemplate("", {})).toBe("")
     })
 
-    it("substitutes provided values and falls back to variable name if not provided", () => {
+    it("substitutes provided values and falls back to variable name if not provided or empty string", () => {
       const template = "Refactor {{code}} to {{language}} using {{framework}}"
       const filled = fillTemplate(template, {
         code: "const x = 1",
-        language: "TypeScript"
+        language: "TypeScript",
+        framework: ""
       })
 
       expect(filled).toBe("Refactor const x = 1 to TypeScript using framework")

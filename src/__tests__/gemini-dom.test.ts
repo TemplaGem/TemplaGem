@@ -1013,5 +1013,22 @@ describe("gemini-dom module", () => {
       document.body.appendChild(textarea)
       expect(cleanTemplateBracketsInInput(textarea)).toBe(false)
     })
+
+    it("cleans template brackets in textarea and contenteditable with cleanTemplateBracketsInInput", () => {
+      const textarea = document.createElement("textarea")
+      textarea.value = "Hello {{name}}, welcome to {{place}}!"
+      document.body.appendChild(textarea)
+      const res = cleanTemplateBracketsInInput(textarea)
+      expect(res).toBe(true)
+      expect(textarea.value).toBe("Hello name, welcome to place!")
+
+      const div = document.createElement("div")
+      div.contentEditable = "true"
+      div.innerHTML = "<p>Hello {{role}}!</p>"
+      document.body.appendChild(div)
+      const resDiv = cleanTemplateBracketsInInput(div)
+      expect(resDiv).toBe(true)
+      expect(div.textContent).toContain("Hello role!")
+    })
   })
 })

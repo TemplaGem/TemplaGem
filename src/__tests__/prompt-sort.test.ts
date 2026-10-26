@@ -153,6 +153,32 @@ describe("prompt-sort utility", () => {
     localStorage.clear()
     expect(getStoredSortOption()).toBe(DEFAULT_SORT_OPTION)
 
+    // Test invalid stored value in localStorage falls back to default
+    localStorage.setItem(SORT_STORAGE_KEY, "invalid-option")
+    expect(getStoredSortOption()).toBe(DEFAULT_SORT_OPTION)
+
+    // Test parseDateValue with invalid date string and invalid Date object
+    const withInvalidDates: IPrompt[] = [
+      {
+        _id: "inv1",
+        title: "Inv1",
+        body: "B1",
+        tags: [],
+        createdAt: "invalid-date" as unknown as Date,
+        updatedAt: new Date(NaN)
+      },
+      {
+        _id: "inv2",
+        title: "Inv2",
+        body: "B2",
+        tags: [],
+        createdAt: undefined,
+        updatedAt: undefined
+      }
+    ]
+    expect(sortPrompts(withInvalidDates, "created-desc")).toHaveLength(2)
+    expect(sortPrompts(withInvalidDates, "updated-desc")).toHaveLength(2)
+
     const chromeSetSpy = vi.fn()
     vi.stubGlobal("chrome", {
       storage: {

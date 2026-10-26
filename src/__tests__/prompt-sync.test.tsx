@@ -344,6 +344,69 @@ describe("Offline-First Sync Engine", () => {
       const deletedPrompt = reconciled.find((p) => p._id === toDeleteId)
       expect(deletedPrompt).toBeUndefined()
     })
+
+    it("reconcileSyncResult skips serverChanges for prompts pending local deletion or local update", async () => {
+      const pendingDeleteServerId = "65f1a2b3c4d5e6f7a8b9c031"
+      const pendingUpdateServerId = "65f1a2b3c4d5e6f7a8b9c032"
+
+      await saveStoredPrompts([
+        { _id: pendingUpdateServerId, title: "Local Draft Update", body: "B", tags: [] }
+      ])
+      await enqueueDeletePrompt(pendingDeleteServerId)
+      await enqueueUpdatePrompt({ promptId: pendingUpdateServerId, title: "Local Draft Update 2" })
+
+      const syncResult: SyncPromptsResultDto = {
+        applied: {
+          created: [
+            {
+              clientTempId: "",
+              serverId: "ignored",
+              createdAt: "2026-10-25T15:00:00.000Z",
+              updatedAt: "2026-10-25T15:00:00.000Z"
+            }
+          ],
+          updated: [],
+          deleted: []
+        },
+        serverChanges: {
+          prompts: [
+            { _id: "", title: "Empty ID", body: "", tags: [] },
+            {
+              _id: pendingDeleteServerId,
+              title: "Server resurrect attempt",
+              body: "B",
+              tags: []
+            },
+            {
+              _id: pendingUpdateServerId,
+              title: "Server overwrite attempt",
+              body: "B",
+              tags: []
+            }
+          ],
+          deletedIds: []
+        },
+        syncTimestamp: "2026-10-25T15:00:00.000Z"
+      }
+
+      const reconciled = await reconcileSyncResult(syncResult)
+      expect(reconciled.find((p) => p._id === pendingDeleteServerId)).toBeUndefined()
+      const updatePrompt = reconciled.find((p) => p._id === pendingUpdateServerId)
+      expect(updatePrompt?.title).toBe("Local Draft Update 2")
+    })
+
+    it("enqueueUpdatePrompt handles unlisted prompt and returns null without targetId", async () => {
+      expect(await enqueueUpdatePrompt({})).toBeNull()
+
+      // Update a prompt not currently in stored prompts list
+      const updated = await enqueueUpdatePrompt({
+        promptId: "non-existent-id",
+        title: "Unlisted Prompt",
+        body: "Unlisted Body"
+      })
+      expect(updated).not.toBeNull()
+      expect(updated?._id).toBe("non-existent-id")
+    })
   })
 
   describe("Sync Service Execution & Error Handling", () => {
@@ -744,6 +807,131 @@ describe("Offline-First Sync Engine", () => {
 
       expect(result.current.status).toBe("idle")
       expect(result.current.lastSyncTimestamp).toBe("2026-10-25T18:00:00.000Z")
+    })
+
+    it("handles storage changes and online events for usePromptsQuery and usePromptSync", async () => {
+      let storageListener:
+        | ((changes: Record<string, chrome.storage.StorageChange>) => void)
+        | undefined
+      const addListener = vi.fn((fn) => {
+        storageListener = fn
+      })
+      const removeListener = vi.fn()
+
+      const stub = {
+        storage: {
+          local: {
+            get: vi.fn().mockResolvedValue({}),
+            set: vi.fn().mockResolvedValue(undefined),
+            remove: vi.fn().mockResolvedValue(undefined)
+          },
+          onChanged: {
+            addListener,
+            removeListener
+          }
+        }
+      }
+      vi.stubGlobal("chrome", stub)
+
+      // Test usePromptsQuery when enabled=false
+      const { unmount: unmountQueryDisabled } = renderHook(
+        () => usePromptsQuery({ enabled: false }),
+        { wrapper }
+      )
+      unmountQueryDisabled()
+
+      // Test usePromptsQuery when enabled=true
+      const { unmount: unmountQuery } = renderHook(
+        () => usePromptsQuery({ enabled: true }),
+        { wrapper }
+      )
+
+      // Trigger onChanged for PROMPTS_CACHE_STORAGE_KEY
+      act(() => {
+        storageListener?.({
+          templagem_prompts_cache: {
+            newValue: []
+          }
+        })
+      })
+
+      // Trigger online event on window
+      act(() => {
+        window.dispatchEvent(new Event("online"))
+      })
+
+      unmountQuery()
+
+      // Test mutations with tempId and matches
+      queryClient.setQueryData<IPrompt[]>(PROMPTS_QUERY_KEY, [
+        { _id: "existing-1", id: "existing-1", title: "Existing", body: "B", tags: [] }
+      ])
+
+      const { result: createHook } = renderHook(
+        () => useCreatePromptMutation(),
+        { wrapper }
+      )
+      await act(async () => {
+        await createHook.current.mutateAsync({
+          title: "Temporary",
+          body: "Temp body",
+          clientTempId: "temp-unique-123"
+        })
+      })
+
+      const { result: updateHook } = renderHook(
+        () => useUpdatePromptMutation(),
+        { wrapper }
+      )
+      await act(async () => {
+        await updateHook.current.mutateAsync({
+          clientTempId: "temp-unique-123",
+          title: "Temporary Updated"
+        })
+      })
+
+      await act(async () => {
+        await updateHook.current.mutateAsync({
+          promptId: "existing-1",
+          title: "Existing Updated"
+        })
+      })
+
+      const { result: deleteHook } = renderHook(
+        () => useDeletePromptMutation(),
+        { wrapper }
+      )
+      await act(async () => {
+        await deleteHook.current.mutateAsync("temp-unique-123")
+      })
+      await act(async () => {
+        await deleteHook.current.mutateAsync("existing-1")
+      })
+
+      // Test usePromptSync storage listener for status and timestamp
+      const { result: syncHook, unmount: unmountSync } = renderHook(
+        () => usePromptSync(),
+        { wrapper }
+      )
+
+      act(() => {
+        storageListener?.({
+          templagem_sync_status: { newValue: "syncing" },
+          templagem_last_sync_timestamp: { newValue: "2026-10-26T12:00:00.000Z" }
+        })
+      })
+
+      await waitFor(() => {
+        expect(syncHook.current.status).toBe("syncing")
+        expect(syncHook.current.lastSyncTimestamp).toBe("2026-10-26T12:00:00.000Z")
+      })
+
+      act(() => {
+        window.dispatchEvent(new Event("online"))
+      })
+
+      unmountSync()
+      vi.unstubAllGlobals()
     })
   })
 
