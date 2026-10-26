@@ -690,8 +690,8 @@ describe("ListSection & Popup Integration", () => {
     const { unmount: unmountTutorialSettings } = render(
       <SettingsPage onBack={vi.fn()} onOpenTutorial={onOpenTutorial} />
     )
-    const tutorialBtn = screen.getByRole("button", { name: /replay onboarding guide/i })
-    await user.click(tutorialBtn)
+    const tutorialBtns = screen.getAllByRole("button", { name: /replay onboarding guide/i })
+    await user.click(tutorialBtns[tutorialBtns.length - 1])
     expect(onOpenTutorial).toHaveBeenCalled()
     unmountTutorialSettings()
 
