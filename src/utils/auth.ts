@@ -85,7 +85,9 @@ export function clearAccessToken(): void {
 export function getAccessToken(): string | null {
   let token = inMemoryAccessToken
   if (!token && typeof window !== "undefined" && window.localStorage) {
-    token = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)
+    token =
+      window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY)
   }
 
   if (!token) {
@@ -107,6 +109,7 @@ export function setRefreshToken(token: string | null): void {
       window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token)
     } else {
       window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY)
+      window.localStorage.removeItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
     }
   }
   syncChromeStorage(REFRESH_TOKEN_STORAGE_KEY, token)
@@ -120,7 +123,9 @@ export function clearRefreshToken(): void {
 export function getRefreshToken(): string | null {
   let token = inMemoryRefreshToken
   if (!token && typeof window !== "undefined" && window.localStorage) {
-    token = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)
+    token =
+      window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
   }
 
   if (!token) {
