@@ -165,11 +165,11 @@ describe("PromptDetailsModal", () => {
     expect(await screen.findByText("Copied!")).toBeInTheDocument()
 
     // Edit title
-    await user.click(screen.getByRole("button", { name: /edit title/i }))
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
     const titleInput = screen.getByPlaceholderText("Prompt title")
     await user.clear(titleInput)
     await user.type(titleInput, "Updated TS Prompt")
-    await user.click(screen.getByRole("button", { name: /save title/i }))
+    await user.click(screen.getByRole("button", { name: /save changes/i }))
 
     expect(updateTitleSpy).toHaveBeenCalledWith({
       promptId: SAMPLE_PROMPT._id,
@@ -178,13 +178,13 @@ describe("PromptDetailsModal", () => {
     expect(await screen.findByText("Updated TS Prompt")).toBeInTheDocument()
 
     // Edit tags via custom tags input
-    await user.click(screen.getByRole("button", { name: /edit tags/i }))
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
     const customTagsInput = screen.getByPlaceholderText(
       /tags \(comma separated\)/i
     )
     await user.clear(customTagsInput)
     await user.type(customTagsInput, "architecture, clean-code")
-    await user.click(screen.getByRole("button", { name: /save tags/i }))
+    await user.click(screen.getByRole("button", { name: /save changes/i }))
 
     expect(updateTagsSpy).toHaveBeenCalledWith({
       promptId: SAMPLE_PROMPT._id,
@@ -193,13 +193,13 @@ describe("PromptDetailsModal", () => {
     expect(await screen.findByText("clean-code")).toBeInTheDocument()
 
     // Edit prompt body
-    await user.click(screen.getByRole("button", { name: /edit prompt/i }))
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
     const bodyTextarea = screen.getByPlaceholderText(
       /write your prompt template/i
     )
     await user.clear(bodyTextarea)
     await user.type(bodyTextarea, "New prompt body instructions")
-    await user.click(screen.getByRole("button", { name: /save prompt/i }))
+    await user.click(screen.getByRole("button", { name: /save changes/i }))
 
     expect(updateBodySpy).toHaveBeenCalledWith({
       promptId: SAMPLE_PROMPT._id,
@@ -229,7 +229,7 @@ describe("PromptDetailsModal", () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it("supports cancelling all edit sections, saving multiple open edits, and handling errors", async () => {
+  it("supports cancelling edit mode, saving multiple modified fields at once, and handling errors", async () => {
     const user = userEvent.setup()
     const onUpdated = vi.fn()
 
@@ -254,25 +254,26 @@ describe("PromptDetailsModal", () => {
 
     expect(screen.getByText("No tags")).toBeInTheDocument()
 
-    // Open and cancel Title, Tags, and Body edits
-    await user.click(screen.getByRole("button", { name: /edit title/i }))
+    // Open and cancel Edit mode
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
     await user.click(screen.getByRole("button", { name: /cancel/i }))
 
-    await user.click(screen.getByRole("button", { name: /edit tags/i }))
-    await user.click(screen.getByRole("button", { name: /cancel/i }))
-
-    await user.click(screen.getByRole("button", { name: /edit prompt/i }))
-    await user.click(screen.getByRole("button", { name: /cancel/i }))
-
-    // Error handling when saving title fails
+    // Error handling when saving fails
     updateTitleSpy.mockRejectedValueOnce(new Error("Title update failed"))
-    await user.click(screen.getByRole("button", { name: /edit title/i }))
-    await user.click(screen.getByRole("button", { name: /save title/i }))
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
+    await user.click(screen.getByRole("button", { name: /save changes/i }))
     expect(await screen.findByText("Title update failed")).toBeInTheDocument()
 
-    // Open all 3 edit sections and click footer "Save changes"
-    await user.click(screen.getByRole("button", { name: /edit tags/i }))
-    await user.click(screen.getByRole("button", { name: /edit prompt/i }))
+    // Modify all 3 fields and click footer "Save changes"
+    await user.type(screen.getByPlaceholderText("Prompt title"), " v2")
+    await user.type(
+      screen.getByPlaceholderText(/tags \(comma separated\)/i),
+      "tag-a, tag-b"
+    )
+    await user.type(
+      screen.getByPlaceholderText(/write your prompt template/i),
+      " updated"
+    )
 
     await user.click(screen.getByRole("button", { name: /save changes/i }))
     await waitFor(() => {
@@ -305,8 +306,8 @@ describe("PromptDetailsModal", () => {
       screen.getByTestId("template-variable-framework")
     ).toBeInTheDocument()
 
-    // Switch to editing body
-    await user.click(screen.getByRole("button", { name: /edit prompt/i }))
+    // Switch to edit mode
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
     expect(screen.getByTestId("template-preview-box")).toBeInTheDocument()
   })
 })
@@ -433,11 +434,11 @@ describe("ListSection & Popup Integration", () => {
     await user.click(screen.getByText("TypeScript Refactoring"))
     expect(screen.getByRole("dialog")).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: /edit title/i }))
+    await user.click(screen.getByRole("button", { name: /^edit$/i }))
     const titleInput = screen.getByPlaceholderText("Prompt title")
     await user.clear(titleInput)
     await user.type(titleInput, "Renamed TS Prompt")
-    await user.click(screen.getByRole("button", { name: /save title/i }))
+    await user.click(screen.getByRole("button", { name: /save changes/i }))
 
     await waitFor(() => {
       expect(screen.getAllByText("Renamed TS Prompt").length).toBeGreaterThan(0)

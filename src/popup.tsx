@@ -10,6 +10,8 @@ import SettingsPage from "~src/components/SettingsPage/SettingsPage"
 import {
   getAccessToken,
   getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
   subscribeAuthChange
 } from "~src/utils/auth"
 import {
@@ -37,6 +39,17 @@ export default function Popup() {
     const unsubAuth = subscribeAuthChange((authenticated) => {
       setIsAuthenticated(authenticated)
     })
+
+    // Synchronize localStorage and chrome.storage.local tokens on mount
+    const localAccess = getAccessToken()
+    const localRefresh = getRefreshToken()
+    if (localRefresh) {
+      setRefreshToken(localRefresh)
+    }
+    if (localAccess) {
+      setAccessToken(localAccess)
+    }
+
     return () => {
       unsubTheme()
       unsubAuth()
