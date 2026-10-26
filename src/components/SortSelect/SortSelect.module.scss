@@ -9,8 +9,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background-color: transparent;
   border: $border-width solid transparent;
@@ -31,6 +31,11 @@
 
   &:active {
     transform: scale(0.95);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 1px;
   }
 
   &.sortTriggerActive {

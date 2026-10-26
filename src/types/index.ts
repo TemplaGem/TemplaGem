@@ -1,4 +1,5 @@
 export type {
+  AccessType,
   CreatePromptBody,
   CreatePromptRequest,
   DeletePrompt,
@@ -13,6 +14,16 @@ export type {
   UpdatePromptTitle,
   UpdatePromptTitleRequest
 } from "./prompt.types"
+
+export type {
+  AppliedCreatedItemDto,
+  SyncPromptItemDto,
+  SyncPromptsPayloadDto,
+  SyncPromptsResultDto,
+  SyncQueue,
+  SyncState,
+  SyncStatus
+} from "./sync.types"
 
 export type {
   ApiErrorResponse,

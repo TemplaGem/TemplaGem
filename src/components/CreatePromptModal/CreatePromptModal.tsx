@@ -1,12 +1,16 @@
 import React, { useState } from "react"
+import { MdClose } from "react-icons/md"
 import * as z from "zod"
 
 import IconPicker from "~src/components/IconPicker/IconPicker"
 import TemplateHighlight from "~src/components/TemplateHighlight/TemplateHighlight"
 import Btn from "~src/components/ui/Btn/Btn"
+import { GUEST_MODE_STORAGE_KEY } from "~src/popup"
 import { createPrompt, invalidatePromptsCache } from "~src/prompts-api"
+import { enqueueCreatePrompt, scheduleSync } from "~src/services/sync.service"
 import { DEFAULT_PROMPT_ICON_ID, setPromptIcon } from "~src/utils/prompt-icons"
 import { hasTemplateVariables } from "~src/utils/template"
+import { createPromptSchema } from "~src/validation/prompt-validation"
 
 import css from "./CreatePromptModal.module.scss"
 
@@ -63,12 +67,50 @@ export default function CreatePromptModal({
 
     try {
       const iconToSave = selectedIcon || DEFAULT_PROMPT_ICON_ID
-      await createPrompt({
+      const isGuest =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem(GUEST_MODE_STORAGE_KEY) === "true"
+
+      // Always validate via schema so empty title/body errors display
+      createPromptSchema.parse({
         title,
         body,
         tags,
         icon: iconToSave
       })
+
+      if (!isGuest) {
+        try {
+          await createPrompt({
+            title,
+            body,
+            tags,
+            icon: iconToSave
+          })
+        } catch (apiErr) {
+          if (apiErr instanceof z.ZodError) {
+            throw apiErr
+          }
+          const msg = apiErr instanceof Error ? apiErr.message : String(apiErr)
+          const isNetworkError =
+            msg.includes("Network down") ||
+            msg.includes("NetworkError") ||
+            msg.includes("Failed to fetch") ||
+            msg.toLowerCase().includes("offline") ||
+            (typeof navigator !== "undefined" && !navigator.onLine)
+          if (!isNetworkError) {
+            throw apiErr
+          }
+        }
+      }
+
+      await enqueueCreatePrompt({
+        title,
+        body,
+        tags,
+        icon: iconToSave
+      })
+      scheduleSync(1500)
       await setPromptIcon(title.trim(), iconToSave)
       invalidatePromptsCache()
       resetForm()
@@ -113,7 +155,7 @@ export default function CreatePromptModal({
             className={css.closeBtn}
             onClick={handleClose}
             aria-label="Close modal">
-            ×
+            <MdClose size={16} />
           </button>
         </div>
 
@@ -203,9 +245,9 @@ export default function CreatePromptModal({
               Cancel
             </Btn>
             <Btn
-              type="button"
+              type="submit"
               styleType="primary"
-              onClick={() => void handleCreatePrompt()}
+              onClick={() => {}}
               disabled={isSubmitting}
               className={css.actionBtn}>
               {isSubmitting ? "Creating..." : "Create"}

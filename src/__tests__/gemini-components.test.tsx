@@ -294,6 +294,9 @@ describe("Gemini decomposed components & hooks", () => {
 
   describe("GeminiStateView", () => {
     it("renders loading, unauthenticated, error, and empty states", () => {
+      const onRetry = vi.fn()
+      const onResetFilters = vi.fn()
+
       const { rerender } = render(
         <GeminiStateView
           isLoading={true}
@@ -322,11 +325,14 @@ describe("Gemini decomposed components & hooks", () => {
           isAuthenticated={true}
           errorMessage="Custom error occurred"
           totalPromptsCount={5}
+          onRetry={onRetry}
         />
       )
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Custom error occurred"
       )
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+      expect(onRetry).toHaveBeenCalledTimes(1)
 
       rerender(
         <GeminiStateView
@@ -344,11 +350,14 @@ describe("Gemini decomposed components & hooks", () => {
           isAuthenticated={true}
           errorMessage={null}
           totalPromptsCount={3}
+          onResetFilters={onResetFilters}
         />
       )
       expect(
         screen.getByText("No prompts match your search.")
       ).toBeInTheDocument()
+      fireEvent.click(screen.getByRole("button", { name: "Reset search" }))
+      expect(onResetFilters).toHaveBeenCalledTimes(1)
     })
   })
 

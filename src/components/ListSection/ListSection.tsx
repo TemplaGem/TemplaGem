@@ -6,6 +6,8 @@ import {
   PROMPTS_CACHE_STORAGE_KEY,
   subscribePromptsCache
 } from "~src/prompts-api"
+import { putPromptsDB } from "~src/services/indexed-db"
+import { getStoredPrompts } from "~src/services/sync-storage"
 import type { IPrompt } from "~src/types"
 import { resolvePromptIcon } from "~src/utils/prompt-icons"
 import {
@@ -39,6 +41,9 @@ export default function ListSection({
   const [prompts, setPrompts] = useState<IPrompt[]>(
     () => externalPrompts ?? getCachedPrompts() ?? []
   )
+  const [isLoading, setIsLoading] = useState<boolean>(
+    () => !externalPrompts && !getCachedPrompts()
+  )
   const [selectedPrompt, setSelectedPrompt] = useState<IPrompt | null>(null)
   const [internalTag, setInternalTag] = useState<string | null>(null)
   const [sortOption, setSortOption] = useState<SortOption>(() =>
@@ -56,34 +61,51 @@ export default function ListSection({
   useEffect(() => {
     if (externalPrompts) {
       setPrompts(externalPrompts)
+      setIsLoading(false)
       return
     }
 
     const loadPrompts = async (forceRefresh = false) => {
-      // 1. Try to fetch fresh or memory/localStorage cached prompts
-      const data = await fetchPrompts(undefined, forceRefresh)
-      if (Array.isArray(data) && data.length > 0) {
-        setPrompts(data)
-        return
-      }
-
-      // 2. If empty (e.g. backend offline or extension reopened), fallback to chrome.storage.local
-      if (typeof chrome !== "undefined" && chrome.storage?.local) {
-        try {
-          const stored = await chrome.storage.local.get(
-            PROMPTS_CACHE_STORAGE_KEY
-          )
-          const storedCache = stored?.[PROMPTS_CACHE_STORAGE_KEY]
-          if (Array.isArray(storedCache) && storedCache.length > 0) {
-            setPrompts(storedCache)
-            return
-          }
-        } catch {
-          // Ignore storage read error
+      try {
+        // 1. Instant Local-First: Load directly from IndexedDB / local storage
+        const local = await getStoredPrompts().catch(() => null)
+        if (Array.isArray(local) && local.length > 0) {
+          setPrompts(local)
+          setIsLoading(false)
         }
-      }
 
-      setPrompts(data ?? [])
+        // 2. Try to fetch fresh or memory/localStorage cached prompts
+        const data = await fetchPrompts(undefined, forceRefresh)
+        if (Array.isArray(data) && data.length > 0) {
+          setPrompts(data)
+          void putPromptsDB(data).catch(() => null)
+          return
+        }
+
+        // 3. Fallback to chrome.storage.local
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          try {
+            const stored = await chrome.storage.local.get(
+              PROMPTS_CACHE_STORAGE_KEY
+            )
+            const storedCache = stored?.[PROMPTS_CACHE_STORAGE_KEY]
+            if (Array.isArray(storedCache) && storedCache.length > 0) {
+              setPrompts(storedCache)
+              return
+            }
+          } catch {
+            // Ignore storage read error
+          }
+        }
+
+        if (local && local.length > 0) {
+          setPrompts(local)
+        } else {
+          setPrompts(data ?? [])
+        }
+      } finally {
+        setIsLoading(false)
+      }
     }
 
     void loadPrompts(true)
@@ -92,7 +114,24 @@ export default function ListSection({
       void loadPrompts(true)
     })
 
-    return unsubscribe
+    const handleStorageChanged = (
+      changes: Record<string, chrome.storage.StorageChange>
+    ) => {
+      if (PROMPTS_CACHE_STORAGE_KEY in changes) {
+        void loadPrompts(false)
+      }
+    }
+
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener(handleStorageChanged)
+    }
+
+    return () => {
+      unsubscribe()
+      if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+        chrome.storage.onChanged.removeListener(handleStorageChanged)
+      }
+    }
   }, [externalPrompts])
 
   const availableTags = useMemo(() => {
@@ -201,6 +240,10 @@ export default function ListSection({
             />
           ))}
         </ul>
+      ) : isLoading ? (
+        <div className={css.emptyState}>
+          <span>Loading prompts...</span>
+        </div>
       ) : (
         <div className={css.emptyState}>
           <span>

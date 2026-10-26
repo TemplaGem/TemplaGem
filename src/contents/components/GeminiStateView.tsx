@@ -7,13 +7,17 @@ export interface GeminiStateViewProps {
   isAuthenticated: boolean
   errorMessage: string | null
   totalPromptsCount: number
+  onResetFilters?: () => void
+  onRetry?: () => void
 }
 
 export const GeminiStateView: React.FC<GeminiStateViewProps> = ({
   isLoading,
   isAuthenticated,
   errorMessage,
-  totalPromptsCount
+  totalPromptsCount,
+  onResetFilters,
+  onRetry
 }) => {
   if (isLoading) {
     return <div className={css.stateBox}>Loading prompts...</div>
@@ -32,16 +36,34 @@ export const GeminiStateView: React.FC<GeminiStateViewProps> = ({
       <div
         className={css.errorBox}
         role="alert">
-        {errorMessage}
+        <span>{errorMessage}</span>
+        {onRetry && (
+          <button
+            type="button"
+            className={css.stateActionBtn}
+            onClick={onRetry}>
+            Try again
+          </button>
+        )}
       </div>
     )
   }
 
   return (
     <div className={css.stateBox}>
-      {totalPromptsCount === 0
-        ? "No prompts saved yet."
-        : "No prompts match your search."}
+      <span>
+        {totalPromptsCount === 0
+          ? "No prompts saved yet."
+          : "No prompts match your search."}
+      </span>
+      {totalPromptsCount > 0 && onResetFilters && (
+        <button
+          type="button"
+          className={css.stateActionBtn}
+          onClick={onResetFilters}>
+          Reset search
+        </button>
+      )}
     </div>
   )
 }
