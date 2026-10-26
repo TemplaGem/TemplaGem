@@ -380,6 +380,10 @@
   font-size: $font-size-sm;
   color: var(--text-muted);
   line-height: $line-height-md;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-lg;
 }
 
 .errorBox {
@@ -388,4 +392,35 @@
   font-size: $font-size-sm;
   color: $color-red-600;
   line-height: $line-height-md;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-lg;
+}
+
+.stateActionBtn {
+  padding: 5px 14px;
+  border-radius: $radius-pill;
+  border: $border-width solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: var(--font-gemini);
+  font-size: $font-size-xs;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color $transition-fast,
+    color $transition-fast,
+    border-color $transition-fast;
+
+  &:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--accent-border);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+  }
 }
