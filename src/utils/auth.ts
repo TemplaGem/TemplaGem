@@ -10,16 +10,30 @@ import { apiRequest, DEFAULT_API_BASE_URL } from "./api-request"
 
 export const ACCESS_TOKEN_STORAGE_KEY = "templagem_access_token"
 export const REFRESH_TOKEN_STORAGE_KEY = "templagem_refresh_token"
+export const LEGACY_ACCESS_TOKEN_STORAGE_KEY = "prompthub_access_token"
+export const LEGACY_REFRESH_TOKEN_STORAGE_KEY = "prompthub_refresh_token"
 
 let inMemoryAccessToken: string | null = null
 let inMemoryRefreshToken: string | null = null
 const authListeners = new Set<(isAuthenticated: boolean) => void>()
 
+function isThirdPartyContentScript(): boolean {
+  if (typeof window === "undefined" || !window.location) {
+    return false
+  }
+  const { protocol, hostname } = window.location
+  return (
+    (protocol === "http:" || protocol === "https:") &&
+    hostname !== "localhost" &&
+    hostname !== "127.0.0.1"
+  )
+}
+
 function syncChromeStorage(key: string, value: string | null): void {
   if (typeof chrome !== "undefined" && chrome.storage?.local) {
     if (value) {
       void chrome.storage.local.set({ [key]: value })
-    } else {
+    } else if (!isThirdPartyContentScript()) {
       void chrome.storage.local.remove(key)
     }
   }
@@ -64,15 +78,31 @@ export function isTokenExpired(token: string): boolean {
 
 export function setAccessToken(token: string | null): void {
   inMemoryAccessToken = token
-  if (typeof window !== "undefined" && window.localStorage) {
+  if (
+    typeof window !== "undefined" &&
+    window.localStorage &&
+    !isThirdPartyContentScript()
+  ) {
     if (token) {
       window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token)
     } else {
       window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY)
+      window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY)
     }
   }
   syncChromeStorage(ACCESS_TOKEN_STORAGE_KEY, token)
-  notifyAuthListeners(Boolean(token || inMemoryRefreshToken))
+  if (!token) {
+    syncChromeStorage(LEGACY_ACCESS_TOKEN_STORAGE_KEY, null)
+  }
+  const hasRefresh =
+    Boolean(inMemoryRefreshToken) ||
+    (typeof window !== "undefined" &&
+      !isThirdPartyContentScript() &&
+      Boolean(
+        window.localStorage?.getItem(REFRESH_TOKEN_STORAGE_KEY) ||
+          window.localStorage?.getItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
+      ))
+  notifyAuthListeners(Boolean(token || hasRefresh))
 }
 
 export function clearAccessToken(): void {
@@ -81,8 +111,19 @@ export function clearAccessToken(): void {
 
 export function getAccessToken(): string | null {
   let token = inMemoryAccessToken
-  if (!token && typeof window !== "undefined" && window.localStorage) {
-    token = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)
+  let fromStorage = false
+  if (
+    !token &&
+    typeof window !== "undefined" &&
+    window.localStorage &&
+    !isThirdPartyContentScript()
+  ) {
+    token =
+      window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY)
+    if (token) {
+      fromStorage = true
+    }
   }
 
   if (!token) {
@@ -94,19 +135,33 @@ export function getAccessToken(): string | null {
     return null
   }
 
+  if (fromStorage && typeof window !== "undefined" && window.localStorage) {
+    inMemoryAccessToken = token
+    window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token)
+  }
+  syncChromeStorage(ACCESS_TOKEN_STORAGE_KEY, token)
+
   return token
 }
 
 export function setRefreshToken(token: string | null): void {
   inMemoryRefreshToken = token
-  if (typeof window !== "undefined" && window.localStorage) {
+  if (
+    typeof window !== "undefined" &&
+    window.localStorage &&
+    !isThirdPartyContentScript()
+  ) {
     if (token) {
       window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token)
     } else {
       window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY)
+      window.localStorage.removeItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
     }
   }
   syncChromeStorage(REFRESH_TOKEN_STORAGE_KEY, token)
+  if (!token) {
+    syncChromeStorage(LEGACY_REFRESH_TOKEN_STORAGE_KEY, null)
+  }
   notifyAuthListeners(Boolean(inMemoryAccessToken || token))
 }
 
@@ -116,8 +171,19 @@ export function clearRefreshToken(): void {
 
 export function getRefreshToken(): string | null {
   let token = inMemoryRefreshToken
-  if (!token && typeof window !== "undefined" && window.localStorage) {
-    token = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)
+  let fromStorage = false
+  if (
+    !token &&
+    typeof window !== "undefined" &&
+    window.localStorage &&
+    !isThirdPartyContentScript()
+  ) {
+    token =
+      window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
+    if (token) {
+      fromStorage = true
+    }
   }
 
   if (!token) {
@@ -130,7 +196,26 @@ export function getRefreshToken(): string | null {
     return null
   }
 
+  if (fromStorage && typeof window !== "undefined" && window.localStorage) {
+    inMemoryRefreshToken = token
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token)
+  }
+  syncChromeStorage(REFRESH_TOKEN_STORAGE_KEY, token)
+
   return token
+}
+
+function clearPromptsStorageCache(): void {
+  if (
+    typeof window !== "undefined" &&
+    window.localStorage &&
+    !isThirdPartyContentScript()
+  ) {
+    window.localStorage.removeItem("templagem_prompts_cache")
+    window.localStorage.removeItem("prompthub_prompts_cache")
+  }
+  syncChromeStorage("templagem_prompts_cache", null)
+  syncChromeStorage("prompthub_prompts_cache", null)
 }
 
 export async function invalidateRefreshToken(
@@ -138,6 +223,7 @@ export async function invalidateRefreshToken(
 ): Promise<void> {
   clearRefreshToken()
   clearAccessToken()
+  clearPromptsStorageCache()
   notifyAuthListeners(false)
   try {
     await fetch(`${baseUrl}/auth/logout`, {
@@ -172,7 +258,9 @@ export async function login(
       body: JSON.stringify(validated)
     }
   )
-  setRefreshToken(response.refreshToken)
+  if (response.refreshToken) {
+    setRefreshToken(response.refreshToken)
+  }
   setAccessToken(response.accessToken)
   return response
 }
@@ -211,5 +299,6 @@ export async function logout(
   } finally {
     clearRefreshToken()
     clearAccessToken()
+    clearPromptsStorageCache()
   }
 }

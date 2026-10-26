@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { LuEye, LuEyeOff } from "react-icons/lu"
 import * as z from "zod"
 
@@ -13,11 +13,13 @@ type AuthMode = "login" | "register"
 interface AuthFormProps {
   initialMode?: AuthMode
   onAuthSuccess: () => void
+  onContinueOffline?: () => void
 }
 
 export default function AuthForm({
   initialMode = "register",
-  onAuthSuccess
+  onAuthSuccess,
+  onContinueOffline
 }: AuthFormProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode)
   const [email, setEmail] = useState("")
@@ -25,10 +27,42 @@ export default function AuthForm({
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showBackendInfo, setShowBackendInfo] = useState(false)
+  const secretClickCountRef = useRef(0)
+  const secretClickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+
+  useEffect(() => {
+    return () => {
+      if (secretClickTimeoutRef.current) {
+        clearTimeout(secretClickTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleSecretClick = () => {
+    if (showBackendInfo) return
+
+    if (secretClickTimeoutRef.current) {
+      clearTimeout(secretClickTimeoutRef.current)
+    }
+
+    secretClickCountRef.current += 1
+    if (secretClickCountRef.current >= 5) {
+      setShowBackendInfo(true)
+      secretClickCountRef.current = 0
+    } else {
+      secretClickTimeoutRef.current = setTimeout(() => {
+        secretClickCountRef.current = 0
+      }, 1500)
+    }
+  }
 
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode)
     setError(null)
+    handleSecretClick()
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -147,11 +181,31 @@ export default function AuthForm({
               ? "Create account"
               : "Sign In"}
         </Btn>
+
+        {onContinueOffline && (
+          <>
+            <div className={css.divider}>
+              <span className={css.dividerLine} />
+              <span className={css.dividerText}>or</span>
+              <span className={css.dividerLine} />
+            </div>
+
+            <button
+              type="button"
+              className={css.offlineBtn}
+              onClick={onContinueOffline}
+              data-testid="continue-offline-btn">
+              Work locally without account
+            </button>
+          </>
+        )}
       </form>
 
-      <div className={css.backendFooter}>
-        <BackendBadge />
-      </div>
+      {showBackendInfo && (
+        <div className={css.backendFooter}>
+          <BackendBadge />
+        </div>
+      )}
     </section>
   )
 }

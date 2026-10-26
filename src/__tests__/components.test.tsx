@@ -184,6 +184,14 @@ describe("UI & Presentational Components", () => {
     await user.click(screen.getByText("TS Assistant"))
     expect(onCardClick).toHaveBeenCalledTimes(1)
 
+    // Keyboard Enter and Space on card -> triggers onCardClick
+    const cardItem = screen.getByText("TS Assistant").closest("li")!
+    cardItem.focus()
+    await user.keyboard("{Enter}")
+    expect(onCardClick).toHaveBeenCalledTimes(2)
+    await user.keyboard(" ")
+    expect(onCardClick).toHaveBeenCalledTimes(3)
+
     // Advance timer to trigger setCopied(false)
     vi.useFakeTimers()
     const { container: timerContainer } = render(
@@ -210,10 +218,11 @@ describe("AuthForm Component", () => {
 
     render(<AuthForm onAuthSuccess={onAuthSuccess} />)
 
-    // Default is register mode
+    // Default is register mode and BackendBadge is hidden initially
     expect(
       screen.getByRole("button", { name: /create account/i })
     ).toBeInTheDocument()
+    expect(screen.queryByTestId("backend-badge")).not.toBeInTheDocument()
 
     // Submit empty form -> shows Zod validation error
     await user.click(screen.getByRole("button", { name: /create account/i }))
@@ -250,8 +259,13 @@ describe("AuthForm Component", () => {
     await user.click(screen.getByRole("button", { name: /hide password/i }))
     expect(passwordInput).toHaveAttribute("type", "password")
 
-    // Switch back to Sign Up and succeed
-    await user.click(screen.getByRole("button", { name: "Sign Up" }))
+    // Switch back to Sign Up and succeed (also test 5-click secret reveal on tabs)
+    const signUpTabBtn = screen.getByRole("button", { name: "Sign Up" })
+    for (let i = 0; i < 4; i++) {
+      await user.click(signUpTabBtn)
+    }
+    expect(screen.getByTestId("backend-badge")).toBeInTheDocument()
+
     registerSpy.mockResolvedValueOnce({ message: "Registered" })
     loginSpy.mockResolvedValueOnce({
       accessToken: "acc",
