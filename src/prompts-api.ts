@@ -3,6 +3,8 @@ import type {
   CreatePromptRequest,
   DeletePromptRequest,
   IPrompt,
+  SyncPromptsPayloadDto,
+  SyncPromptsResultDto,
   UpdatePromptBodyRequest,
   UpdatePromptIconRequest,
   UpdatePromptTagsRequest,
@@ -19,29 +21,47 @@ import {
 } from "./validation/prompt-validation"
 
 export const PROMPTS_CACHE_STORAGE_KEY = "templagem_prompts_cache"
+export const LEGACY_PROMPTS_CACHE_STORAGE_KEY = "prompthub_prompts_cache"
 
 let promptsCache: IPrompt[] | null = null
 const cacheInvalidationListeners = new Set<() => void>()
 
 export function getCachedPrompts(): IPrompt[] | null {
   if (promptsCache !== null) {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      void chrome.storage.local.set({
+        [PROMPTS_CACHE_STORAGE_KEY]: promptsCache
+      })
+    }
     return promptsCache
   }
   if (typeof window !== "undefined" && window.localStorage) {
-    const raw = window.localStorage.getItem(PROMPTS_CACHE_STORAGE_KEY)
+    const raw =
+      window.localStorage.getItem(PROMPTS_CACHE_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_PROMPTS_CACHE_STORAGE_KEY)
     if (raw) {
       try {
         promptsCache = JSON.parse(raw) as IPrompt[]
+        window.localStorage.setItem(
+          PROMPTS_CACHE_STORAGE_KEY,
+          JSON.stringify(promptsCache)
+        )
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          void chrome.storage.local.set({
+            [PROMPTS_CACHE_STORAGE_KEY]: promptsCache
+          })
+        }
         return promptsCache
       } catch {
         window.localStorage.removeItem(PROMPTS_CACHE_STORAGE_KEY)
+        window.localStorage.removeItem(LEGACY_PROMPTS_CACHE_STORAGE_KEY)
       }
     }
   }
   return null
 }
 
-function setCachedPrompts(prompts: IPrompt[]): void {
+export function setCachedPrompts(prompts: IPrompt[]): void {
   promptsCache = prompts
   if (typeof window !== "undefined" && window.localStorage) {
     window.localStorage.setItem(
@@ -222,9 +242,30 @@ export class PromptsApi {
     invalidatePromptsCache()
     return response
   }
+
+  async syncPrompts(
+    payload: SyncPromptsPayloadDto,
+    accessToken?: string
+  ): Promise<SyncPromptsResultDto> {
+    return apiRequest<SyncPromptsResultDto>(
+      `${this.baseUrl}/prompts/sync`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
+      },
+      accessToken
+    )
+  }
 }
 
 export const promptsApi = new PromptsApi()
+
+export async function syncPromptsApi(
+  payload: SyncPromptsPayloadDto,
+  accessToken?: string
+): Promise<SyncPromptsResultDto> {
+  return promptsApi.syncPrompts(payload, accessToken)
+}
 
 export async function fetchPrompts(
   accessToken?: string,

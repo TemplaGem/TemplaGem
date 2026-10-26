@@ -18,11 +18,26 @@ import {
   resetFallbackDB,
   setMetaDB
 } from "../services/indexed-db"
+import {
+  generateTempId,
+  clearSyncQueue,
+  getLastSyncTimestamp,
+  getStoredPrompts,
+  getSyncQueue,
+  getSyncStatus,
+  saveLastSyncTimestamp,
+  saveStoredPrompts,
+  saveSyncQueue,
+  saveSyncStatus,
+  subscribeSyncStatus
+} from "../services/sync-storage"
+import { setCachedPrompts } from "../prompts-api"
 import type { IPrompt } from "../types"
 
 describe("IndexedDB Storage Layer (templagem_db)", () => {
   beforeEach(async () => {
     await resetFallbackDB()
+    await clearSyncQueue()
   })
 
   afterEach(async () => {
@@ -148,6 +163,219 @@ describe("IndexedDB Storage Layer (templagem_db)", () => {
     })
   })
 
+  describe("Integration with sync-storage", () => {
+    it("covers sync-storage chrome and localStorage fallback branches", async () => {
+      const mockStorage: Record<string, unknown> = {}
+      const stub = {
+        storage: {
+          local: {
+            get: vi.fn(async (keys: string | string[]) => {
+              if (typeof keys === "string") {
+                return { [keys]: mockStorage[keys] }
+              }
+              const res: Record<string, unknown> = {}
+              for (const k of keys) res[k] = mockStorage[k]
+              return res
+            }),
+            set: vi.fn(async (items: Record<string, unknown>) => {
+              Object.assign(mockStorage, items)
+            }),
+            remove: vi.fn(async (key: string) => {
+              delete mockStorage[key]
+            })
+          }
+        }
+      }
+      vi.stubGlobal("chrome", stub)
+
+      // Test status
+      await saveSyncStatus("syncing")
+      expect(await getSyncStatus()).toBe("syncing")
+
+      const listener = vi.fn()
+      const unsub = subscribeSyncStatus(listener)
+      await saveSyncStatus("idle")
+      expect(listener).toHaveBeenCalledWith("idle")
+      unsub()
+
+      // Test timestamp
+      await saveLastSyncTimestamp("2026-10-26T15:00:00.000Z")
+      expect(await getLastSyncTimestamp()).toBe("2026-10-26T15:00:00.000Z")
+
+      // Test stored prompts via chrome and localStorage
+      await saveStoredPrompts([
+        { _id: "p1", title: "P1", body: "B1", tags: [] }
+      ])
+      const stored = await getStoredPrompts()
+      expect(stored).toHaveLength(1)
+
+      // Test localStorage branch directly
+      await deleteMetaDB("syncStatus")
+      await deleteMetaDB("lastSyncTimestamp")
+      delete (mockStorage as Record<string, unknown>)["templagem_sync_status"]
+      delete (mockStorage as Record<string, unknown>)["templagem_last_sync_timestamp"]
+      delete (mockStorage as Record<string, unknown>)["templagem_prompts_cache"]
+
+      window.localStorage.setItem("templagem_sync_status", "error")
+      window.localStorage.setItem("templagem_last_sync_timestamp", "2026-10-26T16:00:00.000Z")
+      window.localStorage.setItem(
+        "templagem_prompts_cache",
+        JSON.stringify([{ _id: "p2", title: "P2", body: "B2", tags: [] }])
+      )
+
+      // Mock chrome throws to force fallback to localStorage
+      vi.spyOn(stub.storage.local, "get").mockRejectedValue(new Error("Chrome down"))
+
+      expect(await getSyncStatus()).toBe("error")
+      expect(await getLastSyncTimestamp()).toBe("2026-10-26T16:00:00.000Z")
+      const stored2 = await getStoredPrompts()
+      expect(stored2.length).toBeGreaterThanOrEqual(1)
+
+      // Test chrome.storage.local branch in getStoredPrompts
+      await clearPromptsDB()
+      await deleteMetaDB("prompts_initialized")
+      setCachedPrompts([])
+      window.localStorage.clear()
+      vi.spyOn(stub.storage.local, "get").mockResolvedValue({
+        templagem_prompts_cache: [{ _id: "chrome-p", title: "Chrome P", body: "B", tags: [] }]
+      })
+      const storedFromChrome = await getStoredPrompts()
+      expect(storedFromChrome).toHaveLength(1)
+      expect(storedFromChrome[0]._id).toBe("chrome-p")
+
+      // Test chrome.storage.local branch in getLastSyncTimestamp
+      await deleteMetaDB("lastSyncTimestamp")
+      vi.spyOn(stub.storage.local, "get").mockResolvedValue({
+        templagem_last_sync_timestamp: "2026-10-26T20:00:00.000Z"
+      })
+      expect(await getLastSyncTimestamp()).toBe("2026-10-26T20:00:00.000Z")
+
+      // Test chrome.storage.local branch in getSyncStatus
+      await deleteMetaDB("syncStatus")
+      vi.spyOn(stub.storage.local, "get").mockResolvedValue({
+        templagem_sync_status: "offline"
+      })
+      expect(await getSyncStatus()).toBe("offline")
+
+      // Test saveStoredPrompts with empty array
+      await saveStoredPrompts([])
+      expect(await getStoredPrompts()).toEqual([])
+
+      // Test getStoredPrompts with non-empty cached prompts when DB not initialized
+      await clearPromptsDB()
+      await deleteMetaDB("prompts_initialized")
+      setCachedPrompts([{ _id: "cached-1", title: "Cached", body: "B", tags: [] }])
+      const fromCached = await getStoredPrompts()
+      expect(fromCached).toHaveLength(1)
+      expect(fromCached[0]._id).toBe("cached-1")
+
+      vi.unstubAllGlobals()
+    })
+
+    it("covers getStoredPrompts fallback when idb has prompts but isInit is false, and empty array returns", async () => {
+      // 1. Prompts in DB but prompts_initialized is not set
+      await clearPromptsDB()
+      await deleteMetaDB("prompts_initialized")
+      await putPromptsDB([{ _id: "init-p1", title: "Init P1", body: "B", tags: [] }])
+      const fromDB = await getStoredPrompts()
+      expect(fromDB).toHaveLength(1)
+      expect(fromDB[0]._id).toBe("init-p1")
+
+      // 2. chrome.storage.local empty or not array
+      await clearPromptsDB()
+      await deleteMetaDB("prompts_initialized")
+      setCachedPrompts([])
+      vi.stubGlobal("chrome", {
+        storage: {
+          local: {
+            get: vi.fn(async () => ({ templagem_prompts_cache: null })),
+            set: vi.fn(),
+            remove: vi.fn()
+          }
+        }
+      })
+      const fallbackEmpty = await getStoredPrompts()
+      expect(fallbackEmpty).toBeDefined()
+      vi.unstubAllGlobals()
+    })
+
+    it("covers sync-storage queue fallback branches, corrupted data, and inMemorySyncQueue", async () => {
+      // 1. In-memory queue fallback
+      await saveSyncQueue({
+        created: [{ clientTempId: "mem-1", title: "Mem 1", body: "B1" }],
+        updated: [],
+        deletedIds: []
+      })
+      await deleteMetaDB("syncQueue")
+      const fromMem = await getSyncQueue()
+      expect(fromMem.created).toHaveLength(1)
+
+      // 2. Corrupted localStorage queue
+      window.localStorage.setItem("templagem_sync_queue", "{corrupted json")
+      const fallbackQueue = await getSyncQueue()
+      expect(fallbackQueue).toBeDefined()
+
+      // 3. Queue from chrome.storage
+      const mockStorage: Record<string, unknown> = {
+        templagem_sync_queue: {
+          created: [{ clientTempId: "chr-1", title: "Chr 1", body: "B" }],
+          updated: [],
+          deletedIds: []
+        }
+      }
+      vi.stubGlobal("chrome", {
+        storage: {
+          local: {
+            get: vi.fn(async (key: string) => ({ [key]: mockStorage[key] })),
+            set: vi.fn(),
+            remove: vi.fn()
+          }
+        }
+      })
+      await deleteMetaDB("syncQueue")
+      const fromChrome = await getSyncQueue()
+      expect(fromChrome.created).toHaveLength(1)
+
+      // 4. Test generateTempId
+      const id1 = generateTempId()
+      expect(id1).toBeDefined()
+      const origUUID = globalThis.crypto?.randomUUID
+      if (globalThis.crypto) {
+        ;(globalThis.crypto as { randomUUID?: unknown }).randomUUID = undefined
+      }
+      const id2 = generateTempId()
+      expect(id2).toBeDefined()
+      if (globalThis.crypto && origUUID) {
+        globalThis.crypto.randomUUID = origUUID
+      }
+
+      vi.unstubAllGlobals()
+    })
+
+    it("getStoredPrompts and saveStoredPrompts persist and retrieve from IndexedDB", async () => {
+      const prompts: IPrompt[] = [
+        {
+          _id: "p-100",
+          title: "Stored 1",
+          body: "B 1",
+          tags: ["t1"],
+          access: "private"
+        },
+        {
+          _id: "p-200",
+          title: "Stored 2",
+          body: "B 2",
+          tags: ["t2"],
+          access: "public"
+        }
+      ]
+
+      await saveStoredPrompts(prompts)
+      const loaded = await getStoredPrompts()
+      expect(loaded).toHaveLength(2)
+      expect(loaded.map((p) => p._id)).toEqual(["p-100", "p-200"])
+    })
+  })
 
   describe("Simulated Browser IndexedDB Mock", () => {
     it("handles IDB open, upgrade, transactions, and store operations", async () => {
@@ -322,5 +550,6 @@ describe("IndexedDB Storage Layer (templagem_db)", () => {
       expect(await getPromptDB("fallback-temp")).not.toBeNull()
       await putPromptDB({ title: "No key fallback", body: "B", tags: [] })
     })
+
   })
 })
