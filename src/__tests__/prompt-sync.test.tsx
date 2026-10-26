@@ -1,10 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, render, renderHook, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { act, renderHook } from "@testing-library/react"
 import React from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
-import Popup from "../popup"
 
 import {
   registerBackgroundAlarmListener,
