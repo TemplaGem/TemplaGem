@@ -42,7 +42,7 @@ export default function MotionScreenRecording({
           <div className={css.geminiHeader}>
             <div className={css.geminiBadge}>
               <HiSparkles className={css.sparkleIcon} />
-              <span>Gemini 3.8 flash</span>
+              <span>Gemini 1.5 Pro</span>
             </div>
           </div>
 
