@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
@@ -6,6 +6,7 @@ import AddNewBtn from "~src/components/AddNewBtn/AddNewBtn"
 import AuthForm from "~src/components/AuthForm/AuthForm"
 import Header from "~src/components/Header/Header"
 import PromptCard from "~src/components/PromptCard/PromptCard"
+import SortSelect from "~src/components/SortSelect/SortSelect"
 import TemplaGemLogo from "~src/components/TemplaGemLogo/TemplaGemLogo"
 import PromptIcon, {
   resolvePromptIconType
@@ -184,12 +185,14 @@ describe("UI & Presentational Components", () => {
     await user.click(screen.getByText("TS Assistant"))
     expect(onCardClick).toHaveBeenCalledTimes(1)
 
-    // Keyboard Enter and Space on card -> triggers onCardClick
-    const cardItem = screen.getByText("TS Assistant").closest("li")!
+    // Keyboard navigation on card (Enter and Space keys)
+    const cardItem = screen.getByRole("listitem")
     cardItem.focus()
     await user.keyboard("{Enter}")
     expect(onCardClick).toHaveBeenCalledTimes(2)
     await user.keyboard(" ")
+    expect(onCardClick).toHaveBeenCalledTimes(3)
+    await user.keyboard("{ArrowDown}")
     expect(onCardClick).toHaveBeenCalledTimes(3)
 
     // Advance timer to trigger setCopied(false)
@@ -206,6 +209,52 @@ describe("UI & Presentational Components", () => {
     vi.advanceTimersByTime(1600)
     vi.useRealTimers()
   })
+
+  it("renders SortSelect, handles opening, closing on Escape/outside, and option selection", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+
+    const { unmount } = render(
+      <div>
+        <div data-testid="outside-element">Outside</div>
+        <SortSelect value="created-desc" onChange={onChange} />
+      </div>
+    )
+
+    const trigger = screen.getByRole("button", { name: "Sort prompts" })
+    expect(trigger).toHaveAttribute("aria-expanded", "false")
+
+    // Open dropdown
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("listbox")).toBeInTheDocument()
+
+    // Keydown other than Escape does not close
+    fireEvent.keyDown(document, { key: "Enter" })
+    expect(screen.getByRole("listbox")).toBeInTheDocument()
+
+    // Press Escape to close
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+
+    // Open and click inside container does not close
+    await user.click(trigger)
+    fireEvent.mouseDown(trigger)
+    expect(screen.getByRole("listbox")).toBeInTheDocument()
+
+    // Click outside to close
+    fireEvent.mouseDown(screen.getByTestId("outside-element"))
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+
+    // Open and select an option
+    await user.click(trigger)
+    const titleAscBtn = screen.getByRole("button", { name: /alphabetical \(a → z\)/i })
+    await user.click(titleAscBtn)
+    expect(onChange).toHaveBeenCalledWith("title-asc")
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+
+    unmount()
+  })
 })
 
 describe("AuthForm Component", () => {
@@ -218,11 +267,10 @@ describe("AuthForm Component", () => {
 
     render(<AuthForm onAuthSuccess={onAuthSuccess} />)
 
-    // Default is register mode and BackendBadge is hidden initially
+    // Default is register mode
     expect(
       screen.getByRole("button", { name: /create account/i })
     ).toBeInTheDocument()
-    expect(screen.queryByTestId("backend-badge")).not.toBeInTheDocument()
 
     // Submit empty form -> shows Zod validation error
     await user.click(screen.getByRole("button", { name: /create account/i }))
@@ -259,13 +307,8 @@ describe("AuthForm Component", () => {
     await user.click(screen.getByRole("button", { name: /hide password/i }))
     expect(passwordInput).toHaveAttribute("type", "password")
 
-    // Switch back to Sign Up and succeed (also test 5-click secret reveal on tabs)
-    const signUpTabBtn = screen.getByRole("button", { name: "Sign Up" })
-    for (let i = 0; i < 4; i++) {
-      await user.click(signUpTabBtn)
-    }
-    expect(screen.getByTestId("backend-badge")).toBeInTheDocument()
-
+    // Switch back to Sign Up and succeed
+    await user.click(screen.getByRole("button", { name: "Sign Up" }))
     registerSpy.mockResolvedValueOnce({ message: "Registered" })
     loginSpy.mockResolvedValueOnce({
       accessToken: "acc",

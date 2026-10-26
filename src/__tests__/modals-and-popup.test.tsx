@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import CreatePromptModal from "~src/components/CreatePromptModal/CreatePromptModal"
 import ListSection from "~src/components/ListSection/ListSection"
 import PromptDetailsModal from "~src/components/PromptDetailsModal/PromptDetailsModal"
+import SettingsPage from "~src/components/SettingsPage/SettingsPage"
 import Popup from "~src/popup"
 import * as promptsApiModule from "~src/prompts-api"
 import type { IPrompt } from "~src/types"
@@ -282,6 +283,27 @@ describe("PromptDetailsModal", () => {
       expect(updateBodySpy).toHaveBeenCalled()
       expect(onUpdated).toHaveBeenCalled()
     })
+
+    // Test copy error handling and $oid prompt id branch
+    const clipboardSpy = vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("Clip error"))
+    const oidPrompt = {
+      _id: { $oid: "65f1a2b3c4d5e6f7a8b9c0d1" } as unknown as string,
+      title: "OID Prompt",
+      body: "OID Body",
+      tags: ["oid"]
+    }
+    const { unmount: unmountOid } = render(
+      <PromptDetailsModal
+        prompt={oidPrompt as unknown as IPrompt}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+    const copyBtns = screen.getAllByRole("button", { name: /^copy$/i })
+    await user.click(copyBtns[copyBtns.length - 1])
+    expect(await screen.findByText("Failed to copy prompt to clipboard")).toBeInTheDocument()
+    clipboardSpy.mockRestore()
+    unmountOid()
   })
 
   it("renders template variable highlights in details view and edit mode preview", async () => {
@@ -450,6 +472,44 @@ describe("ListSection & Popup Integration", () => {
     await waitFor(() => {
       expect(screen.queryByText("Renamed TS Prompt")).not.toBeInTheDocument()
     })
+
+    // Test ListSection without external prompts (loads from storage & chrome.storage)
+    let listStorageListener:
+      | ((changes: Record<string, chrome.storage.StorageChange>) => void)
+      | undefined
+    vi.stubGlobal("chrome", {
+      storage: {
+        local: {
+          get: vi.fn().mockResolvedValue({
+            templagem_prompts_cache: [
+              { _id: "cached-list-1", title: "Cached List 1", body: "B", tags: [] }
+            ]
+          }),
+          set: vi.fn().mockResolvedValue(undefined),
+          remove: vi.fn().mockResolvedValue(undefined)
+        },
+        onChanged: {
+          addListener: vi.fn((fn) => {
+            listStorageListener = fn
+          }),
+          removeListener: vi.fn()
+        }
+      }
+    })
+    vi.spyOn(promptsApiModule, "fetchPrompts").mockResolvedValueOnce([])
+
+    const { unmount: unmountList } = render(<ListSection searchQuery="" />)
+    expect(await screen.findByText("Cached List 1")).toBeInTheDocument()
+
+    // Trigger storage change
+    act(() => {
+      listStorageListener?.({
+        templagem_prompts_cache: { newValue: [] }
+      })
+    })
+
+    unmountList()
+    vi.unstubAllGlobals()
   })
 
   it("renders Popup in unauthenticated and authenticated states and handles modals", async () => {
@@ -520,6 +580,9 @@ describe("ListSection & Popup Integration", () => {
     }
     expect(screen.getByText("Server Connection")).toBeInTheDocument()
     expect(screen.getByTestId("backend-badge")).toBeInTheDocument()
+
+    // Clicking again returns early
+    await user.click(settingsHeading)
 
     // Test Auto / Dark / Light segment buttons
     const darkSegmentBtn = screen.getByRole("button", { name: "Dark" })
@@ -621,6 +684,17 @@ describe("ListSection & Popup Integration", () => {
 
     // Re-open SettingsPage and sign out
     await user.click(screen.getByRole("button", { name: /settings/i }))
+
+    // Test onOpenTutorial prop if provided to SettingsPage
+    const onOpenTutorial = vi.fn()
+    const { unmount: unmountTutorialSettings } = render(
+      <SettingsPage onBack={vi.fn()} onOpenTutorial={onOpenTutorial} />
+    )
+    const tutorialBtn = screen.getByRole("button", { name: /replay onboarding guide/i })
+    await user.click(tutorialBtn)
+    expect(onOpenTutorial).toHaveBeenCalled()
+    unmountTutorialSettings()
+
     vi.spyOn(authModule, "logout").mockImplementation(async () => {
       authModule.clearAccessToken()
       authModule.clearRefreshToken()
@@ -630,5 +704,105 @@ describe("ListSection & Popup Integration", () => {
     expect(
       await screen.findByRole("button", { name: /create account/i })
     ).toBeInTheDocument()
+  })
+
+  it("handles guest mode, online event sync, and storage changes in Popup", async () => {
+    const user = userEvent.setup()
+    let storageListener:
+      | ((changes: Record<string, chrome.storage.StorageChange>) => void)
+      | undefined
+
+    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+    const validToken = `${header}.${btoa(
+      JSON.stringify({
+        email: "guest@example.com",
+        exp: Math.floor(Date.now() / 1000) + 3600
+      })
+    )}.sig`
+
+    const stub = {
+      storage: {
+        local: {
+          get: vi.fn().mockImplementation((keys) => {
+            if (Array.isArray(keys)) {
+              return Promise.resolve({
+                templagem_access_token: validToken,
+                templagem_refresh_token: validToken
+              })
+            }
+            return Promise.resolve({
+              templagem_guest_mode: true
+            })
+          }),
+          set: vi.fn().mockResolvedValue(undefined),
+          remove: vi.fn().mockResolvedValue(undefined)
+        },
+        onChanged: {
+          addListener: vi.fn((fn) => {
+            storageListener = fn
+          }),
+          removeListener: vi.fn()
+        }
+      }
+    }
+    vi.stubGlobal("chrome", stub)
+
+    const { unmount } = render(<Popup />)
+
+    // Initially authenticated via storage tokens
+    expect(
+      await screen.findByRole("button", { name: /create new prompt/i })
+    ).toBeInTheDocument()
+
+    // Online event when authenticated vs unauthenticated
+    act(() => {
+      window.dispatchEvent(new Event("online"))
+    })
+
+    // Simulate token change in storage listener
+    act(() => {
+      storageListener?.({
+        templagem_access_token: { newValue: validToken }
+      })
+    })
+
+    // Test refresh token branch in storage listener
+    act(() => {
+      storageListener?.({
+        templagem_refresh_token: { newValue: validToken }
+      })
+    })
+
+    // Test token removed branch in storage listener
+    authModule.clearAccessToken()
+    authModule.clearRefreshToken()
+    act(() => {
+      storageListener?.({
+        templagem_access_token: { newValue: undefined },
+        templagem_refresh_token: { newValue: undefined }
+      })
+    })
+
+    // Test sign in / register link click in SettingsPage when unauthenticated
+    await user.click(screen.getByRole("button", { name: /settings/i }))
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument()
+
+    // Test onOpenAuth callback in SettingsPage
+    const openAuthBtn = screen.getByRole("button", { name: /sign in \/ register/i })
+    await user.click(openAuthBtn)
+    expect(screen.queryByRole("heading", { name: "Settings" })).not.toBeInTheDocument()
+
+    // Click Continue Offline
+    const offlineBtn = screen.getByRole("button", { name: /work locally without account/i })
+    await user.click(offlineBtn)
+    expect(screen.getByTestId("offline-notice-banner")).toBeInTheDocument()
+
+    // Click offline banner Sign In / Register button
+    const bannerLink = screen.getByRole("button", { name: /sign in \/ register/i })
+    await user.click(bannerLink)
+    expect(screen.getByRole("button", { name: /create account/i })).toBeInTheDocument()
+
+    unmount()
+    vi.unstubAllGlobals()
   })
 })

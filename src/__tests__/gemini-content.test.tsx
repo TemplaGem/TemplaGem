@@ -7,6 +7,7 @@ import {
   TEMPLAGEM_GET_PROMPTS_MESSAGE
 } from "../background"
 import { POPOVER_OFFSET_PX } from "../contents/gemini-dom"
+import { loadPromptsForContentScript } from "../contents/gemini-api"
 import GeminiPromptsOverlay, {
   computePopoverPosition,
   detectPageTheme,
@@ -936,6 +937,34 @@ describe("Background script & Gemini content script", () => {
       })
       fireEvent.keyDown(textarea, { key: "Shift" })
       expect(screen.getByRole("dialog")).toBeInTheDocument()
+    })
+  })
+
+  describe("loadPromptsForContentScript", () => {
+    it("falls back to storage when runtime.sendMessage fails or returns invalid response", async () => {
+      vi.stubGlobal("chrome", {
+        runtime: {
+          sendMessage: vi.fn().mockRejectedValue(new Error("No background"))
+        },
+        storage: {
+          local: {
+            get: vi.fn().mockResolvedValue({
+              templagem_refresh_token: "refresh-token-123",
+              templagem_access_token: "access-token-123",
+              templagem_prompts_cache: mockPrompts,
+              templagem_theme: "dark"
+            }),
+            set: vi.fn().mockResolvedValue(undefined),
+            remove: vi.fn().mockResolvedValue(undefined)
+          }
+        }
+      })
+
+      const res = await loadPromptsForContentScript(false)
+      expect(res.ok).toBe(true)
+      expect(res.prompts).toHaveLength(3)
+      expect(res.theme).toBe("dark")
+      expect(res.isAuthenticated).toBe(true)
     })
   })
 })
