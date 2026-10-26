@@ -29,6 +29,7 @@ import {
   generateTempId,
   reconcileSyncResult
 } from "../services/sync-queue"
+import * as syncQueueModule from "../services/sync-queue"
 import {
   clearSyncQueue,
   getLastSyncTimestamp,
@@ -864,7 +865,8 @@ describe("Offline-First Sync Engine", () => {
 
       // Test mutations with tempId and matches
       queryClient.setQueryData<IPrompt[]>(PROMPTS_QUERY_KEY, [
-        { _id: "existing-1", id: "existing-1", title: "Existing", body: "B", tags: [] }
+        { _id: "existing-1", id: "existing-1", title: "Existing", body: "B", tags: [] },
+        { _id: "other-item", title: "Other", body: "O", tags: [], clientTempId: "temp-unique-123" }
       ])
 
       const { result: createHook } = renderHook(
@@ -876,6 +878,16 @@ describe("Offline-First Sync Engine", () => {
           title: "Temporary",
           body: "Temp body",
           clientTempId: "temp-unique-123"
+        })
+      })
+
+      // Test mutate when query data is undefined/empty
+      queryClient.setQueryData<IPrompt[]>(PROMPTS_QUERY_KEY, undefined)
+      await act(async () => {
+        await createHook.current.mutateAsync({
+          title: "Temporary No Old",
+          body: "Temp body",
+          clientTempId: "temp-unique-no-old"
         })
       })
 
@@ -894,6 +906,15 @@ describe("Offline-First Sync Engine", () => {
         await updateHook.current.mutateAsync({
           promptId: "existing-1",
           title: "Existing Updated"
+        })
+      })
+
+      // Test updateHook when returning undefined prompt
+      vi.spyOn(syncQueueModule, "enqueueUpdatePrompt").mockResolvedValueOnce(undefined as unknown as IPrompt)
+      await act(async () => {
+        await updateHook.current.mutateAsync({
+          promptId: "non-existent",
+          title: "Ghost"
         })
       })
 

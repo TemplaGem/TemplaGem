@@ -221,12 +221,28 @@ describe("IconPicker Component", () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
 
-    render(
+    const { rerender } = render(
       <IconPicker
         value="sparkles"
         onChange={onChange}
+        disabled
       />
     )
+
+    // Trigger should be disabled and clicking should not open modal
+    const disabledTrigger = screen.getByTestId("icon-picker-trigger")
+    await user.click(disabledTrigger)
+    expect(screen.queryByTestId("icon-picker-modal")).not.toBeInTheDocument()
+
+    // Test with unknown value fallback
+    rerender(
+      <IconPicker
+        value="unknown-non-existent-icon"
+        onChange={onChange}
+        disabled={false}
+      />
+    )
+    expect(screen.getByTestId("icon-picker-trigger")).toBeInTheDocument()
 
     await user.click(screen.getByTestId("icon-picker-trigger"))
     const rocketTile = screen.getByTestId("icon-tile-rocket")
@@ -325,6 +341,14 @@ describe("Icon Selection in Modals", () => {
           icon: "zap"
         })
       )
+    })
+
+    // Test error branch when updatePromptIcon fails
+    updateIconSpy.mockRejectedValueOnce(new Error("Network failed"))
+    await user.click(iconTrigger)
+    await user.click(screen.getByTestId("icon-tile-rocket"))
+    await waitFor(() => {
+      expect(screen.getByText("Network failed")).toBeInTheDocument()
     })
   })
 })

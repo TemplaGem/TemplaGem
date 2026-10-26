@@ -77,8 +77,26 @@ describe("auth utilities & apiRequest", () => {
     setRefreshToken(validRefresh)
     expect(getRefreshToken()).toBe(validRefresh)
 
+    // Test reading token from localStorage when inMemory is null
+    setAccessToken(null)
+    localStorage.setItem("templagem_access_token", validAccess)
+    expect(getAccessToken()).toBe(validAccess)
+
+    setRefreshToken(null)
+    localStorage.setItem("templagem_refresh_token", validRefresh)
+    expect(getRefreshToken()).toBe(validRefresh)
+
     const expiredRefresh = makeJwt(-10)
     setRefreshToken(expiredRefresh)
+    expect(getRefreshToken()).toBeNull()
+
+    // Test expired token in localStorage
+    setAccessToken(null)
+    localStorage.setItem("templagem_access_token", expiredAccess)
+    expect(getAccessToken()).toBeNull()
+
+    setRefreshToken(null)
+    localStorage.setItem("templagem_refresh_token", expiredRefresh)
     expect(getRefreshToken()).toBeNull()
 
     unsubscribe()
