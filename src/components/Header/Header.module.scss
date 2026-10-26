@@ -33,6 +33,39 @@
   margin: $space-0;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: $space-xs;
+}
+
+.helpBtn {
+  background: transparent;
+  border: none;
+  color: $text-secondary;
+  cursor: pointer;
+  padding: $space-0;
+  width: 34px;
+  height: 34px;
+  border-radius: $radius-pill;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color $transition-fast,
+    color $transition-fast,
+    transform $transition-fast;
+
+  &:hover {
+    background-color: $bg-hover;
+    color: $text-primary;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
 .settingsBtn {
   background: transparent;
   border: none;
