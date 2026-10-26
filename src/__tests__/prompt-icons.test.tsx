@@ -14,6 +14,7 @@ import {
   getStoredPromptIcons,
   PROMPT_ICON_CATEGORIES,
   PROMPT_ICONS,
+  PROMPT_ICONS_STORAGE_KEY,
   resolvePromptIcon,
   setPromptIcon,
   subscribePromptIcons
@@ -91,6 +92,11 @@ describe("Prompt Icons Utility (prompt-icons.ts)", () => {
     expect(resolvePromptIcon({ tags: ["unknown-tag", "icon:invalid"] })).toBe(
       DEFAULT_PROMPT_ICON_ID
     )
+
+    // Test invalid JSON in localStorage for getStoredPromptIcons
+    localStorage.setItem(PROMPT_ICONS_STORAGE_KEY, "invalid-json")
+    await setPromptIcon("test", "code")
+    expect(resolvePromptIcon({ _id: "test" } as IPrompt)).toBe("code")
   })
 })
 

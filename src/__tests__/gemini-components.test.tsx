@@ -448,5 +448,65 @@ describe("Gemini decomposed components & hooks", () => {
 
       expect(result.current.prompts).toHaveLength(1)
     })
+
+    it("handles storage changes and error branches in useGeminiPromptsQuery", async () => {
+      let storageListener:
+        | ((changes: Record<string, chrome.storage.StorageChange>) => void)
+        | undefined
+      const addListener = vi.fn((listener) => {
+        storageListener = listener
+      })
+      const removeListener = vi.fn()
+
+      vi.stubGlobal("chrome", {
+        runtime: {
+          sendMessage: vi.fn().mockResolvedValue({
+            ok: false,
+            prompts: [],
+            error: "Failed to authenticate",
+            isAuthenticated: false
+          })
+        },
+        storage: {
+          onChanged: {
+            addListener,
+            removeListener
+          }
+        }
+      })
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false, gcTime: 0 } }
+      })
+      const wrapper: React.FC<{ children: React.ReactNode }> = ({
+        children
+      }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      )
+
+      const { result, unmount } = renderHook(
+        () => useGeminiPromptsQuery({ enabled: true }),
+        { wrapper }
+      )
+
+      await waitFor(() => {
+        expect(result.current.errorMessage).toBe("Failed to authenticate")
+      })
+      expect(result.current.isAuthenticated).toBe(false)
+
+      expect(addListener).toHaveBeenCalled()
+      if (storageListener) {
+        act(() => {
+          storageListener({
+            templa_gem_access_token: { newValue: "tok" }
+          })
+        })
+      }
+
+      unmount()
+      expect(removeListener).toHaveBeenCalled()
+    })
   })
 })
