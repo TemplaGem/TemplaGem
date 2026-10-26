@@ -10,6 +10,9 @@ import { apiRequest, DEFAULT_API_BASE_URL } from "./api-request"
 
 export const ACCESS_TOKEN_STORAGE_KEY = "templagem_access_token"
 export const REFRESH_TOKEN_STORAGE_KEY = "templagem_refresh_token"
+export const LEGACY_ACCESS_TOKEN_STORAGE_KEY = "prompthub_access_token"
+export const LEGACY_REFRESH_TOKEN_STORAGE_KEY = "prompthub_refresh_token"
+export const GUEST_MODE_STORAGE_KEY = "templagem_guest_mode"
 
 let inMemoryAccessToken: string | null = null
 let inMemoryRefreshToken: string | null = null
@@ -82,7 +85,9 @@ export function clearAccessToken(): void {
 export function getAccessToken(): string | null {
   let token = inMemoryAccessToken
   if (!token && typeof window !== "undefined" && window.localStorage) {
-    token = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)
+    token =
+      window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY)
   }
 
   if (!token) {
@@ -104,6 +109,7 @@ export function setRefreshToken(token: string | null): void {
       window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token)
     } else {
       window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY)
+      window.localStorage.removeItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
     }
   }
   syncChromeStorage(REFRESH_TOKEN_STORAGE_KEY, token)
@@ -117,7 +123,9 @@ export function clearRefreshToken(): void {
 export function getRefreshToken(): string | null {
   let token = inMemoryRefreshToken
   if (!token && typeof window !== "undefined" && window.localStorage) {
-    token = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)
+    token =
+      window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_REFRESH_TOKEN_STORAGE_KEY)
   }
 
   if (!token) {

@@ -178,6 +178,11 @@ export const GeminiPromptsOverlayContent: React.FC = () => {
           isAuthenticated={isAuthenticated}
           errorMessage={errorMessage}
           totalPromptsCount={prompts.length}
+          onResetFilters={() => {
+            setSearchQuery("")
+            setSelectedTag(null)
+          }}
+          onRetry={() => void refreshPrompts()}
         />
       ) : (
         <GeminiPromptList
