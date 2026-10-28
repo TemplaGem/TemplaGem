@@ -44,12 +44,12 @@
 
   &.tagChipActive {
     background-color: var(--accent-color);
-    color: #ffffff;
+    color: var(--accent-contrast, #ffffff);
     border-color: var(--accent-color);
-    box-shadow: 0 1px 4px rgba(11, 87, 208, 0.25);
+    box-shadow: 0 1px 4px var(--accent-border, rgba(11, 87, 208, 0.25));
 
     :global([data-theme="dark"]) & {
-      color: #042e6f;
+      color: var(--accent-contrast, #042e6f);
     }
   }
 }

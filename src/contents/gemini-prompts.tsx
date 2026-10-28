@@ -26,19 +26,28 @@ import {
   GEMINI_INPUT_SELECTOR,
   getOrCreateGeminiRootContainer
 } from "./gemini-elements"
+import { AdapterFactory } from "./core/adapters/AdapterFactory"
+import { DiscoveryEngine } from "./core/discovery-engine"
 import css from "./gemini-prompts.module.scss"
 import { createDefaultQueryClient } from "./gemini-query-client"
 import { useGeminiOverlayEvents } from "./hooks/useGeminiOverlayEvents"
 import { useGeminiPopoverPosition } from "./hooks/useGeminiPopoverPosition"
 import { useGeminiPromptFilters } from "./hooks/useGeminiPromptFilters"
 import { useGeminiPromptsQuery } from "./hooks/useGeminiPromptsQuery"
+import { usePlatformTheme } from "./hooks/usePlatformTheme"
 import { useThemeStorage } from "./hooks/useThemeStorage"
 import { TemplateHighlighter } from "./TemplateHighlighter"
 
 import "./template-variables.scss"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://gemini.google.com/*"]
+  matches: [
+    "https://gemini.google.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://chat.deepseek.com/*"
+  ]
 }
 
 // Re-export DOM helpers, query client, & API for backwards-compatibility with tests
@@ -62,6 +71,7 @@ export {
   useGeminiPromptFilters,
   useGeminiPopoverPosition,
   useGeminiOverlayEvents,
+  usePlatformTheme,
   TemplateHighlighter,
   type GeminiPopoverPosition
 }
@@ -83,6 +93,10 @@ export const GeminiPromptsOverlayContent: React.FC = () => {
 
   // Dedicated custom hook for storage-backed theme changes
   const [theme] = useThemeStorage(apiTheme)
+  const isDark = theme === "dark"
+
+  // Dedicated custom hook for platform-specific dynamic accent colors from manifest
+  const { cssVariables: platformCssVariables } = usePlatformTheme(isDark)
 
   // Dedicated custom hook for popover coordinates and resize/scroll listeners
   const { position, activeInputRef, updatePositionForTarget } =
@@ -106,10 +120,12 @@ export const GeminiPromptsOverlayContent: React.FC = () => {
     const input =
       activeInputRef.current ??
       findGeminiInput(document.activeElement) ??
+      DiscoveryEngine.findInput(null, null) ??
       document.querySelector<HTMLElement>(GEMINI_INPUT_SELECTOR)
     if (input) {
       activeInputRef.current = input
-      insertTextIntoGeminiInput(input, prompt.body)
+      const adapter = AdapterFactory.createAdapter(undefined, null, input)
+      adapter.insertText(prompt.body, input)
     }
     setIsOpen(false)
   }
@@ -150,8 +166,9 @@ export const GeminiPromptsOverlayContent: React.FC = () => {
         width: `${position.width}px`,
         ...(isDockedAbove
           ? { bottom: `${position.bottom}px` }
-          : { top: `${position.top}px` })
-      }}
+          : { top: `${position.top}px` }),
+        ...platformCssVariables
+      } as React.CSSProperties}
       role="dialog"
       aria-label="TemplaGem Gemini Prompts">
       <GeminiHeader
