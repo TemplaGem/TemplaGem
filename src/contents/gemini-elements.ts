@@ -1,4 +1,5 @@
 import type { ThemeMode } from "../utils/theme"
+import { DiscoveryEngine } from "./core/discovery-engine"
 
 export const GEMINI_INPUT_SELECTORS = [
   '.ql-editor[contenteditable="true"]',
@@ -71,6 +72,12 @@ export function findGeminiInput(
     if (editable) return editable
   }
 
+  // Fallback to DiscoveryEngine (resilient 3-tier discovery)
+  const fallback = DiscoveryEngine.findInput(target)
+  if (fallback && (!excludeElement || !excludeElement.contains(fallback))) {
+    return fallback
+  }
+
   return null
 }
 
@@ -121,6 +128,16 @@ export function findGeminiInputContainer(
       return parent
     }
     return rich
+  }
+
+  // 3. Fallback to DiscoveryEngine universal container heuristic (forms, composers, wrappers)
+  const discovered = DiscoveryEngine.findContainer(inputEl)
+  if (
+    discovered &&
+    discovered !== document.body &&
+    discovered !== document.documentElement
+  ) {
+    return discovered
   }
 
   return rich || inputEl
