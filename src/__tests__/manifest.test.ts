@@ -158,6 +158,45 @@ describe("ManifestService & URL Matching", () => {
       expect(manifest.version).toBe(DEFAULT_EMBEDDED_MANIFEST.version)
       expect(manifest.platforms.length).toBe(DEFAULT_EMBEDDED_MANIFEST.platforms.length)
     })
+
+    it("returns stored manifest when within TTL and forceRefresh is false", async () => {
+      const stored = {
+        ...DEFAULT_EMBEDDED_MANIFEST,
+        version: 5
+      }
+      vi.stubGlobal("chrome", {
+        storage: {
+          local: {
+            get: vi.fn().mockResolvedValue({
+              [PLATFORMS_MANIFEST_STORAGE_KEY]: stored,
+              [PLATFORMS_MANIFEST_LAST_FETCH_KEY]: Date.now() - 5000 // 5 seconds ago, well within 60 min TTL
+            })
+          }
+        }
+      })
+      const fetchSpy = vi.fn()
+      vi.stubGlobal("fetch", fetchSpy)
+
+      const manifest = await ManifestService.getManifest(false)
+      expect(manifest.version).toBe(5)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+
+    it("validates manifest via validateManifest and resolves rule via getActiveRuleForUrl", async () => {
+      const validated = ManifestService.validateManifest(DEFAULT_EMBEDDED_MANIFEST)
+      expect(validated.version).toBe(DEFAULT_EMBEDDED_MANIFEST.version)
+
+      const rule = await ManifestService.getActiveRuleForUrl("https://gemini.google.com/app")
+      expect(rule?.id).toBe("gemini")
+
+      const nonExistent = await ManifestService.getActiveRuleForUrl("https://unsupported.domain")
+      expect(nonExistent).toBeNull()
+    })
+
+    it("formats endpoint URL based on PLASMO_PUBLIC_API_URL", () => {
+      const defaultEndpoint = ManifestService.getEndpointUrl()
+      expect(defaultEndpoint).toContain("/api/v1/platforms/manifest")
+    })
   })
 })
 
