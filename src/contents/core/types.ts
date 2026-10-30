@@ -1,12 +1,9 @@
-import type { ResolvedPlatformTheme } from "../../services/manifest/theme-utils"
 import type { PlatformRule } from "../../services/manifest/types"
 import type { TemplateVariableLocation } from "../TemplateHighlighter"
 
 export interface ChatInputAdapter {
   readonly platformId: string
   readonly rule: PlatformRule | null
-
-  getThemeTokens(isDark?: boolean): ResolvedPlatformTheme
 
   findInput(target?: EventTarget | null): HTMLElement | null
   findContainer(input?: HTMLElement | null): HTMLElement | null
