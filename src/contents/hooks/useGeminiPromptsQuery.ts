@@ -1,20 +1,52 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useCallback } from "react"
+import { useCallback, useEffect } from "react"
 
 import type { GetPromptsResponse } from "../../background"
+import { PROMPTS_CACHE_STORAGE_KEY } from "../../prompts-api"
+import {
+  ACCESS_TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY
+} from "../../utils/auth"
 import { loadPromptsForContentScript } from "../gemini-api"
 
 export const GEMINI_PROMPTS_QUERY_KEY = ["gemini-prompts"] as const
 
 export function useGeminiPromptsQuery(options?: { enabled?: boolean }) {
   const queryClient = useQueryClient()
+  const enabled = options?.enabled ?? true
 
   const query = useQuery<GetPromptsResponse>({
     queryKey: GEMINI_PROMPTS_QUERY_KEY,
     queryFn: () => loadPromptsForContentScript(false),
-    enabled: options?.enabled ?? true,
+    enabled,
     staleTime: 1000 * 60 * 5
   })
+
+  useEffect(() => {
+    const handleStorageChanged = (
+      changes: Record<string, chrome.storage.StorageChange>
+    ) => {
+      if (
+        ACCESS_TOKEN_STORAGE_KEY in changes ||
+        REFRESH_TOKEN_STORAGE_KEY in changes ||
+        PROMPTS_CACHE_STORAGE_KEY in changes
+      ) {
+        void queryClient.invalidateQueries({
+          queryKey: GEMINI_PROMPTS_QUERY_KEY
+        })
+      }
+    }
+
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener(handleStorageChanged)
+    }
+
+    return () => {
+      if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+        chrome.storage.onChanged.removeListener(handleStorageChanged)
+      }
+    }
+  }, [queryClient])
 
   const refreshPrompts = useCallback(async () => {
     try {
