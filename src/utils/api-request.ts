@@ -51,18 +51,14 @@ export async function apiRequest<T>(
   })
 
   if (response.status === 401 && !isAuthEndpoint) {
-    if (getRefreshToken()) {
-      try {
-        const refreshed = await refresh()
-        response = await fetch(url, {
-          ...options,
-          headers: buildHeaders(refreshed.accessToken),
-          credentials: options.credentials ?? "include"
-        })
-      } catch {
-        await invalidateRefreshToken()
-      }
-    } else {
+    try {
+      const refreshed = await refresh()
+      response = await fetch(url, {
+        ...options,
+        headers: buildHeaders(refreshed.accessToken),
+        credentials: options.credentials ?? "include"
+      })
+    } catch {
       await invalidateRefreshToken()
     }
   }
@@ -70,11 +66,15 @@ export async function apiRequest<T>(
   const data = (await response.json().catch(() => ({}))) as T & ApiErrorResponse
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       data.error ||
         data.message ||
         `Request failed with status ${response.status}`
     )
+    ;(error as Error & { status: number; data: ApiErrorResponse }).status =
+      response.status
+    ;(error as Error & { status: number; data: ApiErrorResponse }).data = data
+    throw error
   }
 
   return data
