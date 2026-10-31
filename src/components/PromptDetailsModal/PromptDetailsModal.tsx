@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from "react"
-import { IoPricetagsOutline } from "react-icons/io5"
 import {
   MdCheck,
   MdClose,
   MdContentCopy,
   MdDeleteOutline,
-  MdEdit,
-  MdEditNote
+  MdEdit
 } from "react-icons/md"
 import * as z from "zod"
 
@@ -20,6 +18,11 @@ import {
   updatePromptTags,
   updatePromptTitle
 } from "~src/prompts-api"
+import {
+  enqueueDeletePrompt,
+  enqueueUpdatePrompt,
+  scheduleSync
+} from "~src/services/sync.service"
 import type { IPrompt } from "~src/types"
 import { resolvePromptIcon, setPromptIcon } from "~src/utils/prompt-icons"
 import { hasTemplateVariables } from "~src/utils/template"
@@ -50,6 +53,18 @@ function getPromptId(prompt: IPrompt): string {
   return ""
 }
 
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof z.ZodError) return false
+  const msg = err instanceof Error ? err.message : String(err)
+  return (
+    msg.includes("Network down") ||
+    msg.includes("NetworkError") ||
+    msg.includes("Failed to fetch") ||
+    msg.toLowerCase().includes("offline") ||
+    (typeof navigator !== "undefined" && !navigator.onLine)
+  )
+}
+
 export default function PromptDetailsModal({
   prompt,
   isOpen,
@@ -62,14 +77,10 @@ export default function PromptDetailsModal({
   const [body, setBody] = useState("")
   const [customTagsInput, setCustomTagsInput] = useState("")
 
-  const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [isEditingBody, setIsEditingBody] = useState(false)
-  const [isEditingTags, setIsEditingTags] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
-  const [isSavingTitle, setIsSavingTitle] = useState(false)
-  const [isSavingBody, setIsSavingBody] = useState(false)
-  const [isSavingTags, setIsSavingTags] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [isSavingIcon, setIsSavingIcon] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -83,9 +94,7 @@ export default function PromptDetailsModal({
       setBody(prompt.body)
       setCustomTagsInput((prompt.tags ?? []).join(", "))
     }
-    setIsEditingTitle(false)
-    setIsEditingBody(false)
-    setIsEditingTags(false)
+    setIsEditing(false)
     setIsConfirmingDelete(false)
     setError(null)
     setCopied(false)
@@ -96,8 +105,7 @@ export default function PromptDetailsModal({
   }
 
   const promptId = getPromptId(currentPrompt)
-  const isBusy =
-    isSavingTitle || isSavingBody || isSavingTags || isSavingIcon || isDeleting
+  const isBusy = isSaving || isSavingIcon || isDeleting
 
   const formatError = (err: unknown, fallback: string): string => {
     if (err instanceof z.ZodError) {
@@ -127,118 +135,67 @@ export default function PromptDetailsModal({
     }
   }
 
-  const handleSaveTitle = async () => {
+  const handleSaveChanges = async () => {
     if (isBusy) return
     setError(null)
-    setIsSavingTitle(true)
-    try {
-      const trimmedTitle = title.trim()
-      await updatePromptTitle({ promptId, title: trimmedTitle })
-      const updated: IPrompt = {
-        ...currentPrompt,
-        title: trimmedTitle,
-        updatedAt: new Date()
-      }
-      setCurrentPrompt(updated)
-      setTitle(trimmedTitle)
-      setIsEditingTitle(false)
-      onUpdated?.(updated)
-    } catch (err) {
-      setError(formatError(err, "Failed to update title"))
-    } finally {
-      setIsSavingTitle(false)
-    }
-  }
+    setIsSaving(true)
 
-  const handleSaveBody = async () => {
-    if (isBusy) return
-    setError(null)
-    setIsSavingBody(true)
-    try {
-      const trimmedBody = body.trim()
-      await updatePromptBody({ promptId, body: trimmedBody })
-      const updated: IPrompt = {
-        ...currentPrompt,
-        body: trimmedBody,
-        updatedAt: new Date()
-      }
-      setCurrentPrompt(updated)
-      setBody(trimmedBody)
-      setIsEditingBody(false)
-      onUpdated?.(updated)
-    } catch (err) {
-      setError(formatError(err, "Failed to update prompt text"))
-    } finally {
-      setIsSavingBody(false)
-    }
-  }
+    const trimmedTitle = title.trim()
+    const trimmedBody = body.trim()
+    const nextTags = buildCombinedTags()
+    const prevTags = currentPrompt.tags ?? []
 
-  const handleSaveTags = async () => {
-    if (isBusy) return
-    setError(null)
-    setIsSavingTags(true)
-    try {
-      const nextTags = buildCombinedTags()
-      await updatePromptTags({ promptId, tags: nextTags })
-      const updated: IPrompt = {
-        ...currentPrompt,
-        tags: nextTags,
-        updatedAt: new Date()
-      }
-      setCurrentPrompt(updated)
-      setCustomTagsInput(nextTags.join(", "))
-      setIsEditingTags(false)
-      onUpdated?.(updated)
-    } catch (err) {
-      setError(formatError(err, "Failed to update tags"))
-    } finally {
-      setIsSavingTags(false)
-    }
-  }
+    const titleChanged = trimmedTitle !== currentPrompt.title
+    const tagsChanged =
+      nextTags.length !== prevTags.length ||
+      nextTags.some((t, idx) => t !== prevTags[idx])
+    const bodyChanged = trimmedBody !== currentPrompt.body
 
-  const handleSaveAllOpenEdits = async () => {
-    if (isBusy) return
-    setError(null)
     let updated: IPrompt = { ...currentPrompt }
 
     try {
-      if (isEditingTitle) {
-        setIsSavingTitle(true)
-        const trimmedTitle = title.trim()
-        await updatePromptTitle({ promptId, title: trimmedTitle })
-        updated = { ...updated, title: trimmedTitle, updatedAt: new Date() }
-        setTitle(trimmedTitle)
-        setIsEditingTitle(false)
-        setIsSavingTitle(false)
+      try {
+        if (titleChanged || (!tagsChanged && !bodyChanged)) {
+          await updatePromptTitle({ promptId, title: trimmedTitle })
+        }
+        if (tagsChanged) {
+          await updatePromptTags({ promptId, tags: nextTags })
+        }
+        if (bodyChanged) {
+          await updatePromptBody({ promptId, body: trimmedBody })
+        }
+      } catch (networkErr) {
+        if (!isNetworkError(networkErr)) {
+          throw networkErr
+        }
       }
 
-      if (isEditingTags) {
-        setIsSavingTags(true)
-        const nextTags = buildCombinedTags()
-        await updatePromptTags({ promptId, tags: nextTags })
-        updated = { ...updated, tags: nextTags, updatedAt: new Date() }
-        setCustomTagsInput(nextTags.join(", "))
-        setIsEditingTags(false)
-        setIsSavingTags(false)
-      }
+      await enqueueUpdatePrompt({
+        promptId,
+        clientTempId: currentPrompt.clientTempId,
+        title: trimmedTitle,
+        body: trimmedBody,
+        tags: nextTags
+      }).catch(() => null)
+      scheduleSync(1500)
 
-      if (isEditingBody) {
-        setIsSavingBody(true)
-        const trimmedBody = body.trim()
-        await updatePromptBody({ promptId, body: trimmedBody })
-        updated = { ...updated, body: trimmedBody, updatedAt: new Date() }
-        setBody(trimmedBody)
-        setIsEditingBody(false)
-        setIsSavingBody(false)
+      updated = {
+        ...updated,
+        title: trimmedTitle,
+        body: trimmedBody,
+        tags: nextTags,
+        updatedAt: new Date()
       }
-
+      setTitle(trimmedTitle)
+      setBody(trimmedBody)
+      setCustomTagsInput(nextTags.join(", "))
       setCurrentPrompt(updated)
+      setIsEditing(false)
       onUpdated?.(updated)
     } catch (err) {
-      setIsSavingTitle(false)
-      setIsSavingTags(false)
-      setIsSavingBody(false)
       setError(formatError(err, "Failed to save changes"))
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -247,7 +204,15 @@ export default function PromptDetailsModal({
     setError(null)
     setIsDeleting(true)
     try {
-      await deletePrompt({ promptId })
+      try {
+        await deletePrompt({ promptId })
+      } catch (networkErr) {
+        if (!isNetworkError(networkErr)) {
+          throw networkErr
+        }
+      }
+      await enqueueDeletePrompt(promptId).catch(() => null)
+      scheduleSync(1500)
       onDeleted?.(promptId)
       onClose()
     } catch (err) {
@@ -257,21 +222,11 @@ export default function PromptDetailsModal({
     }
   }
 
-  const cancelTitleEdit = () => {
+  const handleCancelEdit = () => {
     setTitle(currentPrompt.title)
-    setIsEditingTitle(false)
-    setError(null)
-  }
-
-  const cancelBodyEdit = () => {
     setBody(currentPrompt.body)
-    setIsEditingBody(false)
-    setError(null)
-  }
-
-  const cancelTagsEdit = () => {
     setCustomTagsInput((currentPrompt.tags ?? []).join(", "))
-    setIsEditingTags(false)
+    setIsEditing(false)
     setError(null)
   }
 
@@ -285,6 +240,8 @@ export default function PromptDetailsModal({
         throw new Error("Prompt ID is missing")
       }
       await updatePromptIcon({ promptId: id, icon: newIcon })
+      await enqueueUpdatePrompt({ promptId: id, icon: newIcon }).catch(() => null)
+      scheduleSync(1500)
       await setPromptIcon(id, newIcon)
       if (currentPrompt.title) {
         await setPromptIcon(currentPrompt.title, newIcon)
@@ -303,8 +260,6 @@ export default function PromptDetailsModal({
       setIsSavingIcon(false)
     }
   }
-
-  const isAnyEditing = isEditingTitle || isEditingBody || isEditingTags
 
   return (
     <div
@@ -331,32 +286,39 @@ export default function PromptDetailsModal({
                 className={css.modalTitle}>
                 {currentPrompt.title}
               </h2>
-              {!isEditingTitle && (
-                <button
-                  type="button"
-                  className={`${css.iconActionBtn} ${css.editTitleBtn}`}
-                  onClick={() => setIsEditingTitle(true)}
-                  disabled={isBusy}>
-                  <MdEdit size={13} />
-                  <span>Edit title</span>
-                </button>
-              )}
             </div>
           </div>
-          <button
-            type="button"
-            className={css.closeBtn}
-            onClick={onClose}
-            aria-label="Close modal">
-            <MdClose size={16} />
-          </button>
+          <div className={css.headerRightActions}>
+            {!isEditing && (
+              <button
+                type="button"
+                className={`${css.iconActionBtn} ${css.editBtn}`}
+                onClick={() => setIsEditing(true)}
+                disabled={isBusy}>
+                <MdEdit size={14} />
+                <span>Edit</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className={css.closeBtn}
+              onClick={onClose}
+              aria-label="Close modal">
+              <MdClose size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Inline Title Editor (when active) */}
-        {isEditingTitle && (
+        {/* Title Editor (when in Edit mode) */}
+        {isEditing && (
           <div className={css.section}>
-            <span className={css.label}>Edit Title</span>
+            <label
+              htmlFor="edit-prompt-title"
+              className={css.label}>
+              Title
+            </label>
             <input
+              id="edit-prompt-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -365,73 +327,28 @@ export default function PromptDetailsModal({
               maxLength={100}
               autoFocus
             />
-            <div className={css.editButtonsRow}>
-              <button
-                type="button"
-                className={`${css.iconActionBtn} ${css.cancelInlineBtn} ${css.editSectionBtn}`}
-                onClick={cancelTitleEdit}
-                disabled={isBusy}>
-                <MdClose size={14} />
-                <span>Cancel</span>
-              </button>
-              <button
-                type="button"
-                className={`${css.iconActionBtn} ${css.saveInlineBtn} ${css.editSectionBtn}`}
-                onClick={() => void handleSaveTitle()}
-                disabled={isBusy}>
-                <MdCheck size={14} />
-                <span>{isSavingTitle ? "Saving..." : "Save title"}</span>
-              </button>
-            </div>
           </div>
         )}
 
         {/* Tags Section */}
         <div className={css.section}>
           <div className={css.sectionHeader}>
-            <span className={css.label}>Tags</span>
-            {!isEditingTags && (
-              <div className={css.inlineActions}>
-                <button
-                  type="button"
-                  className={`${css.iconActionBtn} ${css.editTagsBtn}`}
-                  onClick={() => setIsEditingTags(true)}
-                  disabled={isBusy}>
-                  <IoPricetagsOutline size={13} />
-                  <span>Edit tags</span>
-                </button>
-              </div>
-            )}
+            <label
+              htmlFor={isEditing ? "edit-prompt-tags" : undefined}
+              className={css.label}>
+              Tags
+            </label>
           </div>
 
-          {isEditingTags ? (
-            <>
-              <input
-                type="text"
-                value={customTagsInput}
-                onChange={(e) => setCustomTagsInput(e.target.value)}
-                placeholder="Tags (comma separated)"
-                className={css.input}
-              />
-              <div className={css.editButtonsRow}>
-                <button
-                  type="button"
-                  className={`${css.iconActionBtn} ${css.cancelInlineBtn} ${css.editSectionBtn}`}
-                  onClick={cancelTagsEdit}
-                  disabled={isBusy}>
-                  <MdClose size={14} />
-                  <span>Cancel</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${css.iconActionBtn} ${css.saveInlineBtn} ${css.editSectionBtn}`}
-                  onClick={() => void handleSaveTags()}
-                  disabled={isBusy}>
-                  <MdCheck size={14} />
-                  <span>{isSavingTags ? "Saving..." : "Save tags"}</span>
-                </button>
-              </div>
-            </>
+          {isEditing ? (
+            <input
+              id="edit-prompt-tags"
+              type="text"
+              value={customTagsInput}
+              onChange={(e) => setCustomTagsInput(e.target.value)}
+              placeholder="Tags (comma separated)"
+              className={css.input}
+            />
           ) : (
             <div className={css.tagsList}>
               {currentPrompt.tags && currentPrompt.tags.length > 0 ? (
@@ -452,37 +369,33 @@ export default function PromptDetailsModal({
         {/* Prompt Body Section */}
         <div className={css.section}>
           <div className={css.sectionHeader}>
-            <span className={css.label}>Prompt Text</span>
-            <div className={css.inlineActions}>
-              <button
-                type="button"
-                className={`${css.iconActionBtn} ${css.copyActionBtn}`}
-                onClick={() => void handleCopyPrompt()}>
-                {copied ? <MdCheck size={14} /> : <MdContentCopy size={13} />}
-                <span>{copied ? "Copied!" : "Copy"}</span>
-              </button>
-              {!isEditingBody && (
+            <label
+              htmlFor={isEditing ? "edit-prompt-body" : undefined}
+              className={css.label}>
+              Prompt Text
+            </label>
+            {!isEditing && (
+              <div className={css.inlineActions}>
                 <button
                   type="button"
-                  className={`${css.iconActionBtn} ${css.editPromptBtn}`}
-                  onClick={() => setIsEditingBody(true)}
-                  disabled={isBusy}>
-                  <MdEditNote size={15} />
-                  <span>Edit prompt</span>
+                  className={`${css.iconActionBtn} ${css.copyActionBtn}`}
+                  onClick={() => void handleCopyPrompt()}>
+                  {copied ? <MdCheck size={14} /> : <MdContentCopy size={13} />}
+                  <span>{copied ? "Copied!" : "Copy"}</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          {isEditingBody ? (
+          {isEditing ? (
             <>
               <textarea
+                id="edit-prompt-body"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write your prompt template here..."
                 className={css.textarea}
                 maxLength={10000}
-                autoFocus
               />
               {hasTemplateVariables(body) && (
                 <div
@@ -494,24 +407,6 @@ export default function PromptDetailsModal({
                   <TemplateHighlight text={body} />
                 </div>
               )}
-              <div className={css.editButtonsRow}>
-                <button
-                  type="button"
-                  className={`${css.iconActionBtn} ${css.cancelInlineBtn} ${css.editSectionBtn}`}
-                  onClick={cancelBodyEdit}
-                  disabled={isBusy}>
-                  <MdClose size={14} />
-                  <span>Cancel</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${css.iconActionBtn} ${css.saveInlineBtn} ${css.editSectionBtn}`}
-                  onClick={() => void handleSaveBody()}
-                  disabled={isBusy}>
-                  <MdCheck size={14} />
-                  <span>{isSavingBody ? "Saving..." : "Save prompt"}</span>
-                </button>
-              </div>
             </>
           ) : (
             <div className={css.bodyBox}>
@@ -564,6 +459,27 @@ export default function PromptDetailsModal({
               </button>
             </div>
           </div>
+        ) : isEditing ? (
+          <div className={css.footerActions}>
+            <Btn
+              type="button"
+              styleType="secondary"
+              onClick={handleCancelEdit}
+              disabled={isBusy}
+              className={css.actionBtn}>
+              <MdClose size={15} />
+              <span>Cancel</span>
+            </Btn>
+            <Btn
+              type="button"
+              styleType="primary"
+              onClick={() => void handleSaveChanges()}
+              disabled={isBusy}
+              className={css.actionBtn}>
+              <MdCheck size={16} />
+              <span>{isSaving ? "Saving..." : "Save changes"}</span>
+            </Btn>
+          </div>
         ) : (
           <div className={css.footerActions}>
             <button
@@ -574,27 +490,15 @@ export default function PromptDetailsModal({
               <MdDeleteOutline size={16} />
               <span>Delete</span>
             </button>
-            {isAnyEditing ? (
-              <Btn
-                type="button"
-                styleType="primary"
-                onClick={() => void handleSaveAllOpenEdits()}
-                disabled={isBusy}
-                className={css.actionBtn}>
-                <MdCheck size={16} />
-                <span>{isBusy ? "Saving..." : "Save changes"}</span>
-              </Btn>
-            ) : (
-              <Btn
-                type="button"
-                styleType="secondary"
-                onClick={onClose}
-                disabled={isBusy}
-                className={css.actionBtn}>
-                <MdClose size={15} />
-                <span>Close</span>
-              </Btn>
-            )}
+            <Btn
+              type="button"
+              styleType="secondary"
+              onClick={onClose}
+              disabled={isBusy}
+              className={css.actionBtn}>
+              <MdClose size={15} />
+              <span>Close</span>
+            </Btn>
           </div>
         )}
       </div>

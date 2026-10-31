@@ -48,13 +48,13 @@ describe("Modal edge cases and error handling", () => {
         screen.getByRole("heading", { name: "Prompt without Mongo _id" })
       ).toBeInTheDocument()
 
-      // Edit tags section when initial tags are undefined
-      await user.click(screen.getByRole("button", { name: /edit tags/i }))
+      // Enter Edit mode when initial tags are undefined
+      await user.click(screen.getByRole("button", { name: /^edit$/i }))
       expect(
         screen.getByPlaceholderText(/tags \(comma separated\)/i)
       ).toHaveValue("")
 
-      // Cancel tags edit
+      // Cancel edit mode
       await user.click(screen.getByRole("button", { name: /cancel/i }))
       expect(
         screen.queryByPlaceholderText(/tags \(comma separated\)/i)
@@ -99,23 +99,28 @@ describe("Modal edge cases and error handling", () => {
         />
       )
 
-      await user.click(screen.getByRole("button", { name: /edit title/i }))
-      await user.click(screen.getByRole("button", { name: /save title/i }))
+      await user.click(screen.getByRole("button", { name: /^edit$/i }))
+      await user.click(screen.getByRole("button", { name: /save changes/i }))
       expect(
         await screen.findByText("Title cannot be blank")
       ).toBeInTheDocument()
 
       // 2. Non-Error throw in updatePromptBody
+      updateTitleSpy.mockResolvedValue({ message: "OK" })
       const updateBodySpy = vi.spyOn(promptsApiModule, "updatePromptBody")
       updateBodySpy.mockRejectedValueOnce("String error rejection")
 
-      await user.click(screen.getByRole("button", { name: /edit prompt/i }))
-      await user.click(screen.getByRole("button", { name: /save prompt/i }))
+      const bodyInput = screen.getByPlaceholderText(
+        /write your prompt template/i
+      )
+      await user.type(bodyInput, " updated")
+      await user.click(screen.getByRole("button", { name: /save changes/i }))
       expect(
-        await screen.findByText("Failed to update prompt text")
+        await screen.findByText("Failed to save changes")
       ).toBeInTheDocument()
 
-      // 3. Non-Error throw in deletePrompt
+      // Cancel edit mode and test deletePrompt non-Error throw
+      await user.click(screen.getByRole("button", { name: /cancel/i }))
       const deleteSpy = vi.spyOn(promptsApiModule, "deletePrompt")
       deleteSpy.mockRejectedValueOnce("Cannot delete string error")
 

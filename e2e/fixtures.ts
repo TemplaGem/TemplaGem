@@ -37,7 +37,7 @@ export function makeJwt(expOffsetSeconds: number = 3600): string {
 
 export const DEFAULT_MOCK_PROMPTS: MockPrompt[] = [
   {
-    _id: "prompt-1",
+    _id: "65f1a2b3c4d5e6f7a8b9c0d1",
     title: "Code Review Assistant",
     body: "Please review this {{language}} code for {{focus_area}} issues.",
     tags: ["development", "code"],
@@ -46,7 +46,7 @@ export const DEFAULT_MOCK_PROMPTS: MockPrompt[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    _id: "prompt-2",
+    _id: "65f1a2b3c4d5e6f7a8b9c0d2",
     title: "Bug Triage Summary",
     body: "Summarize bug report for {{service_name}} with severity {{severity}}.",
     tags: ["routine", "daily"],
@@ -82,7 +82,6 @@ export const test = base.extend<{
     // Route backend API requests so tests execute 100% hermetically and instantly
     await context.route("http://localhost:4300/**", async (route) => {
       const url = route.request().url()
-
       if (url.includes("/api/v1/platforms/manifest")) {
         await route.fulfill({
           status: 200,
@@ -92,10 +91,23 @@ export const test = base.extend<{
         return
       }
 
+      if (url.includes("/api/auth/login")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            accessToken: makeJwt(3600),
+            refreshToken: makeJwt(7200)
+          })
+        })
+        return
+      }
+
       if (
         url.includes("/api/prompts/create") ||
         url.includes("/api/prompts/delete") ||
-        url.includes("/api/prompts/update")
+        url.includes("/api/prompts/update") ||
+        url.includes("/api/prompts/change")
       ) {
         await route.fulfill({
           status: 200,
@@ -375,6 +387,14 @@ export async function seedStorage(
   if (background) {
     await background.evaluate(
       async (payload) => {
+        if (payload.token === null) {
+          await chrome.storage.local.remove([
+            "templagem_access_token",
+            "templagem_refresh_token",
+            "templagem_prompts_cache"
+          ])
+          return
+        }
         const toSet: Record<string, unknown> = {}
         if (payload.token !== undefined) {
           toSet.templagem_access_token = payload.token
@@ -410,7 +430,7 @@ export async function openPopupPage(
 
   await seedStorage(context, {
     token,
-    prompts: authenticated ? prompts : []
+    prompts: authenticated ? prompts : undefined
   })
 
   const page = await context.newPage()
