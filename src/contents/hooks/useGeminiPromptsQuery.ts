@@ -19,15 +19,8 @@ export function useGeminiPromptsQuery(options?: { enabled?: boolean }) {
     queryKey: GEMINI_PROMPTS_QUERY_KEY,
     queryFn: () => loadPromptsForContentScript(false),
     enabled,
-    staleTime: (q) =>
-      q.state.data?.isAuthenticated === false ? 0 : 1000 * 60 * 5
+    staleTime: 1000 * 60 * 5
   })
-
-  useEffect(() => {
-    if (enabled && query.data?.isAuthenticated === false && !query.isFetching) {
-      void query.refetch()
-    }
-  }, [enabled, query])
 
   useEffect(() => {
     const handleStorageChanged = (
