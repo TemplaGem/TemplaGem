@@ -1,6 +1,7 @@
 import type {
   IPrompt,
   SyncPromptItemDto,
+  SyncPromptsPayloadDto,
   SyncPromptsResultDto
 } from "../types"
 import {
@@ -214,7 +215,8 @@ export async function enqueueDeletePrompt(id: string): Promise<boolean> {
 }
 
 export async function reconcileSyncResult(
-  result: SyncPromptsResultDto
+  result: SyncPromptsResultDto,
+  sentPayload?: SyncPromptsPayloadDto
 ): Promise<IPrompt[]> {
   const prompts = await getStoredPrompts()
   const queue = await getSyncQueue()
@@ -252,12 +254,28 @@ export async function reconcileSyncResult(
     }
   }
 
-  // 2. Clear applied.updated
+  // 2. Clear applied.updated (preserving newer in-flight local modifications)
   if (Array.isArray(result.applied?.updated)) {
     const appliedUpdatedSet = new Set(result.applied.updated)
-    queue.updated = queue.updated.filter(
-      (item) => !item.promptId || !appliedUpdatedSet.has(item.promptId)
-    )
+    const sentMap = new Map<string, string | undefined>()
+    if (sentPayload?.updated) {
+      for (const s of sentPayload.updated) {
+        if (s.promptId) sentMap.set(s.promptId, s.updatedAt)
+      }
+    }
+
+    queue.updated = queue.updated.filter((item) => {
+      if (!item.promptId || !appliedUpdatedSet.has(item.promptId)) {
+        return true
+      }
+      if (sentMap.has(item.promptId)) {
+        const sentTs = sentMap.get(item.promptId)
+        if (item.updatedAt && sentTs && item.updatedAt > sentTs) {
+          return true
+        }
+      }
+      return false
+    })
   }
 
   // 3. Clear applied.deleted

@@ -429,6 +429,48 @@ describe("Offline-First Sync Engine", () => {
       expect(updated).not.toBeNull()
       expect(updated?._id).toBe("non-existent-id")
     })
-  })
+    it("preserves in-flight updates in queue.updated if modified after sync payload was sent", async () => {
+      const serverId = "test-in-flight-id"
+      await saveStoredPrompts([
+        { _id: serverId, id: serverId, title: "Original Title", body: "Body", tags: [] }
+      ])
 
+      // 1. Sent payload snapshot
+      const sentPayload = {
+        created: [],
+        updated: [
+          {
+            promptId: serverId,
+            title: "Old Revision",
+            body: "Body",
+            updatedAt: "2026-10-25T12:00:00.000Z"
+          }
+        ],
+        deletedIds: []
+      }
+
+      // 2. User made newer local edit while sync was in-flight
+      await enqueueUpdatePrompt({
+        promptId: serverId,
+        title: "Newer Revision"
+      })
+
+      // 3. Server responds applied.updated: [serverId]
+      const syncResult = {
+        applied: {
+          created: [],
+          updated: [serverId],
+          deleted: []
+        },
+        serverChanges: { prompts: [], deletedIds: [] },
+        syncTimestamp: "2026-10-25T12:05:00.000Z"
+      }
+
+      await reconcileSyncResult(syncResult, sentPayload)
+
+      const queue = await getSyncQueue()
+      // Newer revision must still be in queue.updated!
+      expect(queue.updated.some((u) => u.promptId === serverId)).toBe(true)
+    })
+  })
 })
