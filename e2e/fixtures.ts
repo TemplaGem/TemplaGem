@@ -6,6 +6,8 @@ import {
   type Page
 } from "@playwright/test"
 
+import defaultManifestJson from "../src/services/manifest/default-manifest.json"
+
 export const pathToExtension = path.resolve(
   process.cwd(),
   "build/chrome-mv3-prod"
@@ -58,6 +60,10 @@ export const test = base.extend<{
   context: BrowserContext
   extensionId: string
   geminiPage: Page
+  chatgptPage: Page
+  claudePage: Page
+  deepseekPage: Page
+  chaosAiPage: Page
 }>({
   context: async ({}, use) => {
     const context = await chromium.launchPersistentContext("", {
@@ -76,6 +82,16 @@ export const test = base.extend<{
     // Route backend API requests so tests execute 100% hermetically and instantly
     await context.route("http://localhost:4300/**", async (route) => {
       const url = route.request().url()
+
+      if (url.includes("/api/v1/platforms/manifest")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(defaultManifestJson)
+        })
+        return
+      }
+
       if (
         url.includes("/api/prompts/create") ||
         url.includes("/api/prompts/delete") ||
@@ -138,8 +154,6 @@ export const test = base.extend<{
 
   geminiPage: async ({ context }, use) => {
     const page = await context.newPage()
-
-    // Route Gemini domain to local mock DOM fixture to ensure 100% hermetic, offline-resilient execution
     await page.route("https://gemini.google.com/**", async (route) => {
       const mockHtml = `
         <!DOCTYPE html>
@@ -160,6 +174,7 @@ export const test = base.extend<{
             <rich-textarea>
               <div class="ql-editor" contenteditable="true" role="textbox" aria-label="Input prompt"></div>
             </rich-textarea>
+            <button aria-label="Send message" class="send-button">Send</button>
           </div>
         </body>
         </html>
@@ -172,6 +187,169 @@ export const test = base.extend<{
     })
 
     await page.goto("https://gemini.google.com/app", {
+      waitUntil: "domcontentloaded"
+    })
+    await use(page)
+    await page.close()
+  },
+
+  chatgptPage: async ({ context }, use) => {
+    const page = await context.newPage()
+    await page.route("https://chatgpt.com/**", async (route) => {
+      const mockHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>ChatGPT Test Environment</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 40px; margin: 0; background: #212121; color: #fff; }
+            .composer { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 720px; }
+            form { display: flex; flex-direction: column; background: #2f2f2f; border-radius: 24px; padding: 12px; }
+            #prompt-textarea { min-height: 48px; outline: none; color: #ececec; font-size: 16px; white-space: pre-wrap; }
+            .bottom-bar { display: flex; justify-content: flex-end; margin-top: 8px; }
+            button[data-testid="send-button"] { border-radius: 50%; width: 32px; height: 32px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <div class="composer">
+            <form class="stretch mx-2 flex flex-row gap-3">
+              <div id="prompt-textarea" class="ProseMirror" contenteditable="true" role="textbox" aria-multiline="true" placeholder="Ask anything"></div>
+              <div class="bottom-bar">
+                <button data-testid="send-button" aria-label="Send prompt" disabled>Send</button>
+              </div>
+            </form>
+          </div>
+        </body>
+        </html>
+      `
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: mockHtml
+      })
+    })
+
+    await page.goto("https://chatgpt.com/", {
+      waitUntil: "domcontentloaded"
+    })
+    await use(page)
+    await page.close()
+  },
+
+  claudePage: async ({ context }, use) => {
+    const page = await context.newPage()
+    await page.route("https://claude.ai/**", async (route) => {
+      const mockHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Claude AI Test Environment</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 40px; margin: 0; background: #faf9f5; }
+            .composer-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 700px; }
+            fieldset { border: 1px solid #dcdad2; border-radius: 16px; padding: 14px; background: #ffffff; }
+            div.ProseMirror { min-height: 50px; outline: none; font-size: 16px; }
+            button.send-btn { float: right; padding: 6px 12px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <div class="composer-container">
+            <fieldset class="composer">
+              <div class="ProseMirror" contenteditable="true" role="textbox" aria-multiline="true"></div>
+              <button aria-label="Send" type="submit" class="send-btn">Send</button>
+            </fieldset>
+          </div>
+        </body>
+        </html>
+      `
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: mockHtml
+      })
+    })
+
+    await page.goto("https://claude.ai/chat/new", {
+      waitUntil: "domcontentloaded"
+    })
+    await use(page)
+    await page.close()
+  },
+
+  deepseekPage: async ({ context }, use) => {
+    const page = await context.newPage()
+    await page.route("https://chat.deepseek.com/**", async (route) => {
+      const mockHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>DeepSeek Test Environment</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 40px; margin: 0; background: #ffffff; }
+            .chat-input-wrapper { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 720px; border: 1px solid #d1d5db; border-radius: 16px; padding: 12px; }
+            textarea#chat-input { width: 100%; min-height: 50px; border: none; outline: none; font-size: 15px; resize: none; }
+            .send-btn { display: inline-block; padding: 6px 12px; cursor: pointer; float: right; }
+          </style>
+        </head>
+        <body>
+          <div class="chat-input-wrapper">
+            <textarea id="chat-input" placeholder="Message DeepSeek..."></textarea>
+            <div role="button" aria-label="Send message" class="send-btn">Send</div>
+          </div>
+        </body>
+        </html>
+      `
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: mockHtml
+      })
+    })
+
+    await page.goto("https://chat.deepseek.com/", {
+      waitUntil: "domcontentloaded"
+    })
+    await use(page)
+    await page.close()
+  },
+
+  chaosAiPage: async ({ context }, use) => {
+    const page = await context.newPage()
+    await page.route("https://gemini.google.com/chaos/**", async (route) => {
+      const mockHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Redesigned AI Layout Test</title>
+          <style>
+            body { padding: 40px; margin: 0; }
+            .completely-random-wrapper-x89 { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); width: 680px; }
+            form { border: 1px solid #999; padding: 12px; border-radius: 12px; }
+            .x782jk9 { min-height: 40px; outline: none; }
+          </style>
+        </head>
+        <body>
+          <div class="completely-random-wrapper-x89">
+            <form>
+              <div class="x782jk9" role="textbox" contenteditable="true" aria-multiline="true"></div>
+              <button type="submit" aria-label="Send prompt">Submit</button>
+            </form>
+          </div>
+        </body>
+        </html>
+      `
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: mockHtml
+      })
+    })
+
+    await page.goto("https://gemini.google.com/chaos/chat", {
       waitUntil: "domcontentloaded"
     })
     await use(page)
