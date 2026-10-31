@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-27T12:00:00Z",
+  "ttlMinutes": 60,
+  "platforms": [
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "enabled": true,
+      "matches": ["https://gemini.google.com/*"],
+      "accentColor": "#0b57d0",
+      "theme": {
+        "accentColor": "#0b57d0",
+        "accentColorDark": "#a8c7fa"
+      },
+      "selectors": {
+        "input": [
+          ".ql-editor[contenteditable=\"true\"]",
+          "rich-textarea [contenteditable=\"true\"]",
+          "div[role=\"textbox\"][contenteditable=\"true\"]",
+          "textarea"
+        ],
+        "container": [
+          ".input-area-container",
+          ".chat-input-container",
+          ".input-area",
+          ".text-input-field",
+          "[class*=\"input-area\"]",
+          "[class*=\"chat-input\"]",
+          "form"
+        ],
+        "submitButton": [
+          "button[aria-label*=\"Send\" i]",
+          "button[aria-label*=\"Отправить\" i]",
+          "button.send-button",
+          "button[type=\"submit\"]"
+        ]
+      },
+      "editor": {
+        "type": "quill",
+        "insertStrategy": "execCommand"
+      },
+      "popover": {
+        "attachTo": "container",
+        "offset": { "x": 0, "y": 8 }
+      }
+    },
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "enabled": true,
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "accentColor": "#000000",
+      "theme": {
+        "accentColor": "#000000",
+        "accentColorDark": "#ffffff"
+      },
+      "selectors": {
+        "input": [
+          "#prompt-textarea",
+          "div[contenteditable=\"true\"][id=\"prompt-textarea\"]",
+          "div.ProseMirror[contenteditable=\"true\"]",
+          "div[role=\"textbox\"][contenteditable=\"true\"]",
+          "textarea#prompt-textarea",
+          "textarea"
+        ],
+        "container": [
+          "form[class*=\"stretch\"]",
+          "div[class*=\"composer\"]",
+          "div[class*=\"input-wrapper\"]",
+          "form"
+        ],
+        "submitButton": [
+          "button[data-testid=\"send-button\"]",
+          "button[aria-label*=\"Send\" i]",
+          "button[aria-label*=\"Отправить\" i]",
+          "button[type=\"submit\"]"
+        ]
+      },
+      "editor": {
+        "type": "prosemirror",
+        "insertStrategy": "inputEvent"
+      },
+      "popover": {
+        "attachTo": "container",
+        "offset": { "x": 0, "y": 12 }
+      }
+    },
+    {
+      "id": "claude",
+      "name": "Anthropic Claude",
+      "enabled": true,
+      "matches": ["https://claude.ai/*"],
+      "accentColor": "#d97706",
+      "theme": {
+        "accentColor": "#d97706",
+        "accentColorDark": "#f59e0b"
+      },
+      "selectors": {
+        "input": [
+          "div.ProseMirror[contenteditable=\"true\"]",
+          "fieldset div[contenteditable=\"true\"]",
+          "div[role=\"textbox\"][contenteditable=\"true\"]",
+          "div[contenteditable=\"true\"]"
+        ],
+        "container": [
+          "div[class*=\"composer\"]",
+          "fieldset",
+          "div[class*=\"input-container\"]",
+          "form"
+        ],
+        "submitButton": [
+          "button[aria-label*=\"Send\" i]",
+          "button[aria-label*=\"Отправить\" i]",
+          "button[type=\"submit\"]"
+        ]
+      },
+      "editor": {
+        "type": "prosemirror",
+        "insertStrategy": "inputEvent"
+      },
+      "popover": {
+        "attachTo": "container",
+        "offset": { "x": 0, "y": 10 }
+      }
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek Chat",
+      "enabled": true,
+      "matches": ["https://chat.deepseek.com/*"],
+      "accentColor": "#4d6bfe",
+      "theme": {
+        "accentColor": "#4d6bfe",
+        "accentColorDark": "#6b88fe"
+      },
+      "selectors": {
+        "input": [
+          "#chat-input",
+          "textarea#chat-input",
+          "textarea[placeholder*=\"DeepSeek\" i]",
+          "div[role=\"textbox\"][contenteditable=\"true\"]",
+          "textarea"
+        ],
+        "container": [
+          ".chat-input-wrapper",
+          "[class*=\"chat-input\"]",
+          "[class*=\"composer\"]",
+          "form"
+        ],
+        "submitButton": [
+          "div[role=\"button\"][aria-label*=\"Send\" i]",
+          "button[aria-label*=\"Send\" i]",
+          "button[type=\"submit\"]",
+          "[class*=\"send-btn\"]"
+        ]
+      },
+      "editor": {
+        "type": "textarea",
+        "insertStrategy": "directValue"
+      },
+      "popover": {
+        "attachTo": "container",
+        "offset": { "x": 0, "y": 10 }
+      }
+    }
+  ]
+}
+
