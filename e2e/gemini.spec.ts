@@ -119,6 +119,7 @@ test.describe("Gemini Page Content Script Integration (E2E)", () => {
     await popupPage.evaluate(
       ({ access, refresh, prompts }) => {
         window.localStorage.clear()
+        window.localStorage.setItem("templagem_onboarding_completed", "true")
         window.localStorage.setItem("prompthub_access_token", access)
         window.localStorage.setItem("prompthub_refresh_token", refresh)
         window.localStorage.setItem(
