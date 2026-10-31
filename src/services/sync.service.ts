@@ -112,7 +112,7 @@ async function executeSync(options?: {
     const result = await syncPromptsApi(payload, options?.accessToken)
 
     // 6. Reconciliation
-    await reconcileSyncResult(result)
+    await reconcileSyncResult(result, payload)
     await saveSyncStatus("idle")
 
     // 7. Invalidate caches and queries
