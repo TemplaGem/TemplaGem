@@ -28,11 +28,6 @@ const cacheInvalidationListeners = new Set<() => void>()
 
 export function getCachedPrompts(): IPrompt[] | null {
   if (promptsCache !== null) {
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      void chrome.storage.local.set({
-        [PROMPTS_CACHE_STORAGE_KEY]: promptsCache
-      })
-    }
     return promptsCache
   }
   if (typeof window !== "undefined" && window.localStorage) {

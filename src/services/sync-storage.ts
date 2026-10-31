@@ -18,10 +18,10 @@ import {
 } from "../prompts-api"
 import type { IPrompt, SyncQueue, SyncStatus } from "../types"
 import {
-  clearPromptsDB,
   getAllPromptsDB,
   getMetaDB,
   putPromptsDB,
+  replacePromptsDB,
   setMetaDB
 } from "./indexed-db"
 import { seedInitialPrompts } from "./seed-prompts"
@@ -356,12 +356,9 @@ export async function saveStoredPrompts(prompts: IPrompt[]): Promise<void> {
   // 1. Sync to memory cache & chrome.storage.local
   setCachedPrompts(prompts)
 
-  // 2. Persist directly to IndexedDB
+  // 2. Persist directly to IndexedDB in an atomic transaction
   try {
-    await clearPromptsDB()
-    if (prompts.length > 0) {
-      await putPromptsDB(prompts)
-    }
+    await replacePromptsDB(prompts)
     await setMetaDB("prompts_initialized", true)
   } catch {
     // ignore
