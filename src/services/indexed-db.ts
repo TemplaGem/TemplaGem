@@ -187,6 +187,40 @@ export async function putPromptsDB(prompts: IPrompt[]): Promise<void> {
   })
 }
 
+export async function replacePromptsDB(prompts: IPrompt[]): Promise<void> {
+  const db = await openDB().catch(() => null)
+  if (!db) {
+    fallbackPromptsMap.clear()
+    for (const p of prompts) {
+      const key = p._id || p.id || p.clientTempId
+      if (key) {
+        fallbackPromptsMap.set(key, { ...p, _id: key })
+      }
+    }
+    return
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction(PROMPTS_STORE, "readwrite")
+      const store = tx.objectStore(PROMPTS_STORE)
+
+      store.clear()
+      for (const prompt of prompts) {
+        const key = prompt._id || prompt.id || prompt.clientTempId
+        if (key) {
+          store.put({ ...prompt, _id: key })
+        }
+      }
+
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
 export async function deletePromptDB(id: string): Promise<void> {
   const db = await openDB().catch(() => null)
   if (!db) {

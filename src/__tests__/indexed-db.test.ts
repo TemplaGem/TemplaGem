@@ -15,6 +15,7 @@ import {
   PROMPTS_STORE,
   putPromptDB,
   putPromptsDB,
+  replacePromptsDB,
   resetFallbackDB,
   setMetaDB
 } from "../services/indexed-db"
@@ -321,6 +322,20 @@ describe("IndexedDB Storage Layer (templagem_db)", () => {
       expect(await getPromptDB("fallback-id")).not.toBeNull()
       expect(await getPromptDB("fallback-temp")).not.toBeNull()
       await putPromptDB({ title: "No key fallback", body: "B", tags: [] })
+    })
+    it("replaces all prompts atomically with replacePromptsDB in IDB and fallback modes", async () => {
+      await putPromptsDB([
+        { _id: "old-1", title: "Old 1", body: "B", tags: [] },
+        { _id: "old-2", title: "Old 2", body: "B", tags: [] }
+      ])
+      expect(await getAllPromptsDB()).toHaveLength(2)
+
+      await replacePromptsDB([
+        { _id: "new-1", title: "New 1", body: "B", tags: [] }
+      ])
+      const prompts = await getAllPromptsDB()
+      expect(prompts).toHaveLength(1)
+      expect(prompts[0]._id).toBe("new-1")
     })
   })
 })
