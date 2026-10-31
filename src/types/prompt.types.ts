@@ -37,15 +37,21 @@ export interface DeletePrompt {
   promptId: string
 }
 
+export type AccessType = "public" | "private" | "link"
+
 export interface IPrompt {
   _id?: string
   id?: string
+  clientTempId?: string
   title: string
   body: string
-  createdAt?: Date
-  updatedAt?: Date
+  createdAt?: Date | string
+  updatedAt?: Date | string
   tags: Array<string>
   icon?: string
+  access?: AccessType
+  likes?: number
+  downloads?: number
 }
 
 export type CreatePromptRequest = Omit<
