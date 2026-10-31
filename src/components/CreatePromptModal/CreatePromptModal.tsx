@@ -6,7 +6,9 @@ import IconPicker from "~src/components/IconPicker/IconPicker"
 import TemplateHighlight from "~src/components/TemplateHighlight/TemplateHighlight"
 import Btn from "~src/components/ui/Btn/Btn"
 import { createPrompt, invalidatePromptsCache } from "~src/prompts-api"
-import { enqueueCreatePrompt, scheduleSync } from "~src/services/sync.service"
+import { enqueueCreatePrompt, generateTempId, scheduleSync } from "~src/services/sync.service"
+import { getStoredPrompts, saveStoredPrompts } from "~src/services/sync-storage"
+import type { IPrompt } from "~src/types"
 import { GUEST_MODE_STORAGE_KEY } from "~src/utils/auth"
 import { DEFAULT_PROMPT_ICON_ID, setPromptIcon } from "~src/utils/prompt-icons"
 import { hasTemplateVariables } from "~src/utils/template"
@@ -79,6 +81,7 @@ export default function CreatePromptModal({
         icon: iconToSave
       })
 
+      let createdViaRest = false
       if (!isGuest) {
         try {
           await createPrompt({
@@ -87,6 +90,7 @@ export default function CreatePromptModal({
             tags,
             icon: iconToSave
           })
+          createdViaRest = true
         } catch (apiErr) {
           if (apiErr instanceof z.ZodError) {
             throw apiErr
@@ -104,13 +108,32 @@ export default function CreatePromptModal({
         }
       }
 
-      await enqueueCreatePrompt({
-        title,
-        body,
-        tags,
-        icon: iconToSave
-      })
-      scheduleSync(1500)
+      if (!createdViaRest) {
+        await enqueueCreatePrompt({
+          title,
+          body,
+          tags,
+          icon: iconToSave
+        })
+        scheduleSync(1500)
+      } else {
+        const tempId = generateTempId()
+        const now = new Date().toISOString()
+        const newPrompt: IPrompt = {
+          _id: tempId,
+          id: tempId,
+          clientTempId: tempId,
+          title: title.trim(),
+          body,
+          tags,
+          icon: iconToSave,
+          access: "private",
+          createdAt: now,
+          updatedAt: now
+        }
+        const existing = await getStoredPrompts()
+        await saveStoredPrompts([newPrompt, ...existing])
+      }
       await setPromptIcon(title.trim(), iconToSave)
       invalidatePromptsCache()
       resetForm()

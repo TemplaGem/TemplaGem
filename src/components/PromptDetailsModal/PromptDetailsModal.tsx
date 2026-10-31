@@ -53,6 +53,18 @@ function getPromptId(prompt: IPrompt): string {
   return ""
 }
 
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof z.ZodError) return false
+  const msg = err instanceof Error ? err.message : String(err)
+  return (
+    msg.includes("Network down") ||
+    msg.includes("NetworkError") ||
+    msg.includes("Failed to fetch") ||
+    msg.toLowerCase().includes("offline") ||
+    (typeof navigator !== "undefined" && !navigator.onLine)
+  )
+}
+
 export default function PromptDetailsModal({
   prompt,
   isOpen,
@@ -142,22 +154,20 @@ export default function PromptDetailsModal({
     let updated: IPrompt = { ...currentPrompt }
 
     try {
-      if (titleChanged || (!tagsChanged && !bodyChanged)) {
-        await updatePromptTitle({ promptId, title: trimmedTitle })
-        updated = { ...updated, title: trimmedTitle, updatedAt: new Date() }
-        setTitle(trimmedTitle)
-      }
-
-      if (tagsChanged) {
-        await updatePromptTags({ promptId, tags: nextTags })
-        updated = { ...updated, tags: nextTags, updatedAt: new Date() }
-        setCustomTagsInput(nextTags.join(", "))
-      }
-
-      if (bodyChanged) {
-        await updatePromptBody({ promptId, body: trimmedBody })
-        updated = { ...updated, body: trimmedBody, updatedAt: new Date() }
-        setBody(trimmedBody)
+      try {
+        if (titleChanged || (!tagsChanged && !bodyChanged)) {
+          await updatePromptTitle({ promptId, title: trimmedTitle })
+        }
+        if (tagsChanged) {
+          await updatePromptTags({ promptId, tags: nextTags })
+        }
+        if (bodyChanged) {
+          await updatePromptBody({ promptId, body: trimmedBody })
+        }
+      } catch (networkErr) {
+        if (!isNetworkError(networkErr)) {
+          throw networkErr
+        }
       }
 
       await enqueueUpdatePrompt({
@@ -169,6 +179,16 @@ export default function PromptDetailsModal({
       }).catch(() => null)
       scheduleSync(1500)
 
+      updated = {
+        ...updated,
+        title: trimmedTitle,
+        body: trimmedBody,
+        tags: nextTags,
+        updatedAt: new Date()
+      }
+      setTitle(trimmedTitle)
+      setBody(trimmedBody)
+      setCustomTagsInput(nextTags.join(", "))
       setCurrentPrompt(updated)
       setIsEditing(false)
       onUpdated?.(updated)
@@ -184,7 +204,13 @@ export default function PromptDetailsModal({
     setError(null)
     setIsDeleting(true)
     try {
-      await deletePrompt({ promptId })
+      try {
+        await deletePrompt({ promptId })
+      } catch (networkErr) {
+        if (!isNetworkError(networkErr)) {
+          throw networkErr
+        }
+      }
       await enqueueDeletePrompt(promptId).catch(() => null)
       scheduleSync(1500)
       onDeleted?.(promptId)
