@@ -1,3 +1,7 @@
+import {
+  resolvePlatformTheme,
+  type ResolvedPlatformTheme
+} from "../../../services/manifest/theme-utils"
 import type { PlatformRule } from "../../../services/manifest/types"
 import {
   getContentEditableSelectionOffsets,
@@ -16,6 +20,10 @@ export abstract class BaseAdapter implements ChatInputAdapter {
 
   constructor(rule: PlatformRule | null = null) {
     this.rule = rule
+  }
+
+  getThemeTokens(isDark: boolean = false): ResolvedPlatformTheme {
+    return resolvePlatformTheme(this.rule, isDark)
   }
 
   findInput(target?: EventTarget | null): HTMLElement | null {

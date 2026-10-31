@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest"
+import { renderHook, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AdapterFactory } from "../contents/core/adapters/AdapterFactory"
 import { ChatGPTAdapter } from "../contents/core/adapters/ChatGPTAdapter"
 import { ClaudeAdapter } from "../contents/core/adapters/ClaudeAdapter"
 import { DeepSeekAdapter } from "../contents/core/adapters/DeepSeekAdapter"
 import { GeminiAdapter } from "../contents/core/adapters/GeminiAdapter"
-import { resolveActivePlatformRule } from "../services/manifest/manifest-service"
+import { TEMPLAGEM_GEMINI_ROOT_ID } from "../contents/gemini-elements"
+import { usePlatformTheme } from "../contents/hooks/usePlatformTheme"
+import {
+  ManifestService,
+  resolveActivePlatformRule
+} from "../services/manifest/manifest-service"
 import {
   extractPlatformAccentColor,
   getContrastColor,
@@ -15,6 +21,15 @@ import {
 import type { PlatformRule } from "../services/manifest/types"
 
 describe("Platform Dynamic Accent Color & Theme", () => {
+  beforeEach(() => {
+    document.body.innerHTML = ""
+    vi.restoreAllMocks()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   describe("hexToRgba", () => {
     it("converts 6-digit hex colors to rgba with alpha", () => {
       expect(hexToRgba("#d97706", 0.1)).toBe("rgba(217, 119, 6, 0.1)")
@@ -45,6 +60,7 @@ describe("Platform Dynamic Accent Color & Theme", () => {
       expect(getContrastColor("#ffffff")).toBe("#111827")
       expect(getContrastColor("#a8c7fa")).toBe("#111827")
       expect(getContrastColor("#ffff00")).toBe("#111827")
+      expect(getContrastColor("rgb(255, 255, 255)")).toBe("#111827")
     })
 
     it("returns white text for dark or vibrant backgrounds", () => {
@@ -52,6 +68,8 @@ describe("Platform Dynamic Accent Color & Theme", () => {
       expect(getContrastColor("#0b57d0")).toBe("#ffffff")
       expect(getContrastColor("#d97706")).toBe("#ffffff")
       expect(getContrastColor("#4d6bfe")).toBe("#ffffff")
+      expect(getContrastColor("rgb(0, 0, 0)")).toBe("#ffffff")
+      expect(getContrastColor("")).toBe("#ffffff")
     })
   })
 
@@ -120,13 +138,15 @@ describe("Platform Dynamic Accent Color & Theme", () => {
         theme: {
           accentColor: "#10b981",
           accentSoft: "rgba(16, 185, 129, 0.15)",
-          accentBorder: "rgba(16, 185, 129, 0.35)"
+          accentBorder: "rgba(16, 185, 129, 0.35)",
+          accentContrast: "#000000"
         }
       }
       const resolved = resolvePlatformTheme(customBorderRule, false)
       expect(resolved.accentColor).toBe("#10b981")
       expect(resolved.accentSoft).toBe("rgba(16, 185, 129, 0.15)")
       expect(resolved.accentBorder).toBe("rgba(16, 185, 129, 0.35)")
+      expect(resolved.accentContrast).toBe("#000000")
 
       // Backend format 3: Nested colors object
       const colorsObjRule = {
@@ -138,6 +158,19 @@ describe("Platform Dynamic Accent Color & Theme", () => {
       } as unknown as PlatformRule
       expect(extractPlatformAccentColor(colorsObjRule, false)).toBe("#8b5cf6")
       expect(extractPlatformAccentColor(colorsObjRule, true)).toBe("#a78bfa")
+
+      // Known platform fallback without theme properties
+      const bareGeminiRule: PlatformRule = {
+        id: "gemini",
+        name: "Bare Gemini",
+        enabled: true,
+        matches: ["https://gemini.google.com/*"],
+        selectors: { input: ["textarea"], container: ["form"] },
+        editor: { type: "textarea", insertStrategy: "directValue" },
+        popover: { attachTo: "container", offset: { x: 0, y: 0 } }
+      }
+      expect(extractPlatformAccentColor(bareGeminiRule, false)).toBe("#0b57d0")
+      expect(extractPlatformAccentColor(bareGeminiRule, true)).toBe("#a8c7fa")
     })
 
     it("falls back safely to default TemplaGem colors when rule is null", () => {
@@ -170,5 +203,61 @@ describe("Platform Dynamic Accent Color & Theme", () => {
       expect(deepseekAdapter.getThemeTokens(false).accentColor).toBe("#4d6bfe")
     })
   })
-})
 
+  describe("usePlatformTheme hook", () => {
+    it("synchronizes CSS variables to root container and document", async () => {
+      const root = document.createElement("div")
+      root.id = TEMPLAGEM_GEMINI_ROOT_ID
+      document.body.appendChild(root)
+
+      const { result, rerender } = renderHook(
+        ({ isDark }) => usePlatformTheme(isDark),
+        { initialProps: { isDark: false } }
+      )
+
+      expect(result.current.cssVariables["--accent-color"]).toBeDefined()
+      expect(root.style.getPropertyValue("--accent-color")).toBe(
+        result.current.tokens.accentColor
+      )
+      expect(document.documentElement.style.getPropertyValue("--accent-color")).toBe(
+        result.current.tokens.accentColor
+      )
+
+      // Toggle dark mode
+      rerender({ isDark: true })
+      expect(result.current.tokens.accentColor).toBeDefined()
+
+      // When ManifestService updates
+      vi.spyOn(ManifestService, "getManifest").mockResolvedValue({
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        ttlMinutes: 60,
+        platforms: [
+          {
+            id: "gemini",
+            name: "Updated Gemini",
+            enabled: true,
+            matches: ["<all_urls>"],
+            selectors: { input: ["textarea"], container: ["form"] },
+            editor: { type: "quill", insertStrategy: "execCommand" },
+            popover: { attachTo: "container", offset: { x: 0, y: 0 } },
+            accentColor: "#2563eb"
+          }
+        ]
+      })
+
+      const { result: updatedResult } = renderHook(() => usePlatformTheme(false))
+      await waitFor(() => {
+        expect(updatedResult.current.tokens.accentColor).toBe("#2563eb")
+      })
+    })
+
+    it("handles getManifest rejection and missing rootContainer gracefully", async () => {
+      document.body.innerHTML = "" // no rootContainer
+      vi.spyOn(ManifestService, "getManifest").mockRejectedValue(new Error("Network offline"))
+
+      const { result } = renderHook(() => usePlatformTheme(false))
+      expect(result.current.tokens.accentColor).toBeDefined()
+    })
+  })
+})
